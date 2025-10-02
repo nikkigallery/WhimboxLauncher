@@ -126,3 +126,5 @@ venv.bak/
 app/
 config/
 launcher.log
+/git
+/python
