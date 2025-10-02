@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>奇想盒 · 启动器</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/notifications.css"/>
+  <!-- 优雅字体（系统优先） -->
+  <style>
+    @font-face { font-family: "Harmony"; src: local("SF Pro Display"), local("PingFang SC"), local("Microsoft YaHei"); }
+  </style>
+</head>
+
+<body class="bg-cover">
+  <!-- 背景 -->
+  <div class="bg-overlay"></div>
+
+  <!-- 左上角品牌区 -->
+  <header class="brand">
+    <img class="brand__logo" src="assets/appicon.png" alt="奇想盒 Logo"/>
+    <div class="brand__meta">
+      <h1 class="brand__title">奇想盒启动器(测试版)</h1>
+      <div class="brand__version">v0.0.0</div>
+    </div>
+  </header>
+
+  <!-- 右下角主操作 -->
+  <div class="cta">
+    <button id="btn-config" class="btn btn-primary" title="配置并初始化环境" onclick="openSetup()">
+      配置环境
+    </button>
+    <div class="cta__split"></div>
+    <button id="btn-advanced" class="btn btn-ghost" title="高级启动配置 / 打开项目文件夹" onclick="toggleDrawer()">
+      ▲
+    </button>
+  </div>
+
+  <!-- Modal：配置进度 & 日志 -->
+  <div id="setup-modal" class="modal" aria-hidden="true">
+    <div class="modal__dialog">
+      <div class="modal__header">
+        <h2>配置环境</h2>
+        <button class="modal__close" aria-label="关闭" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="progress">
+          <div id="progress-bar" class="progress__bar" style="width:0%;"></div>
+        </div>
+        <div id="status-text" class="status">准备就绪 ✨</div>
+        <div id="log-section" class="log">
+          <div id="log-content" class="log__content"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn-secondary" onclick="checkUpdates()">检查更新</button>
+        <button id="launch-btn" class="btn btn-success" onclick="startProject()" disabled>直接启动</button>
+      </div>
+    </div>
+    <div class="modal__backdrop" onclick="closeModal()"></div>
+  </div>
+
+  <!-- Drawer：高级配置（内嵌你的原有三页签内容） -->
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer__handle">
+      <span>高级启动配置</span>
+      <div class="drawer__actions">
+        <button class="btn btn-text" onclick="openProjectFolder()">打开项目文件夹</button>
+        <button class="btn btn-text" onclick="toggleDrawer()">收起</button>
+      </div>
+    </div>
+
+    <div class="drawer__content">
+      <div class="tab-container">
+        <div class="tab-buttons">
+          <button class="tab-button active" data-tab="setup" onclick="switchTab('setup', event)">🎯 项目设置</button>
+          <button class="tab-button" data-tab="options" onclick="switchTab('options', event)">⚙️ 启动选项</button>
+          <button class="tab-button" data-tab="launch" onclick="switchTab('launch', event)">🚀 启动项目</button>
+        </div>
+
+        <!-- setup -->
+        <section id="setup-tab" class="tab-content active">
+          <div class="section">
+            <h3>🎯 项目配置</h3>
+            <div class="form-group">
+              <label for="github-repo">📦 GitHub仓库地址:
+                <span class="locked-badge">🔒 已锁定</span>
+              </label>
+              <input type="text" id="github-repo" value="https://github.com/nikkigallery/Whimbox" readonly disabled>
+            </div>
+            <div class="form-group">
+              <label for="python-version">🐍 Python版本:
+                <span class="locked-badge">🔒 已锁定</span>
+              </label>
+              <input type="text" id="python-version" value="3.12" readonly disabled>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>🌐 镜像设置</h3>
+            <label class="checkbox"><input type="checkbox" id="use-git-mirror" checked> 🚀 使用Git镜像加速</label>
+            <label class="checkbox"><input type="checkbox" id="use-python-mirror" checked> 📦 使用Python镜像加速</label>
+            <label class="checkbox"><input type="checkbox" id="use-pip-update" checked> ⬆️ 启动时检查pip更新</label>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn" onclick="saveConfig()">💾 保存配置</button>
+            <button class="btn btn-secondary" onclick="resetConfig()">🔄 重置默认</button>
+          </div>
+        </section>
+
+        <!-- options -->
+        <section id="options-tab" class="tab-content">
+          <div class="section">
+            <h3>⚙️ 启动选项</h3>
+            <label class="checkbox"><input type="checkbox" id="check-updates" checked> 🔄 启动前检查软件更新</label>
+            <label class="checkbox"><input type="checkbox" id="auto-start" checked> 🎯 配置完成后自动启动项目</label>
+            <label class="checkbox"><input type="checkbox" id="show-console"> 🖥️ 显示控制台窗口</label>
+          </div>
+          <div class="section">
+            <h3>🔧 高级选项</h3>
+            <div class="form-group">
+              <label for="git-mirror-url">🌐 Git镜像地址</label>
+              <input type="url" id="git-mirror-url" value="https://github.com.cnpmjs.org">
+            </div>
+            <div class="form-group">
+              <label for="python-mirror-url">📦 Python镜像地址</label>
+              <input type="url" id="python-mirror-url" value="https://mirrors.aliyun.com/pypi/simple/">
+            </div>
+            <div class="form-group">
+              <label for="pip-mirror-url">📦 Pip镜像地址</label>
+              <input type="url" id="pip-mirror-url" value="https://mirrors.aliyun.com/pypi/simple/">
+            </div>
+          </div>
+        </section>
+
+        <!-- launch -->
+        <section id="launch-tab" class="tab-content">
+          <div class="alert alert-info"><strong>💡 提示：</strong>建议先保存配置再启动</div>
+          <div class="btn-group">
+            <button id="start-btn" class="btn btn-success" onclick="openSetup()">🎯 开始设置</button>
+            <button class="btn btn-secondary" onclick="checkUpdates()">🔄 检查更新</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </aside>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
