@@ -282,7 +282,7 @@ class PythonLauncher:
             
             # 克隆仓库
             if self.config.get('github_repo'):
-                self.update_progress(15, "正在下载奇想盒AI源文件...")
+                self.update_progress(15, "正在下载奇想盒AI源文件，该步骤时间较长，请耐心等待...")
                 if not self.git_manager.clone_repository(self.config['github_repo']):
                     self.update_progress(100, "下载奇想盒AI源文件失败，请检查网络连接和仓库地址")
                     return
@@ -379,7 +379,7 @@ class PythonLauncher:
                 # 更新最后运行时间
                 self.config_manager.update_last_run()
             else:
-                self.update_progress(100, "未找到main.py文件")
+                self.update_progress(100, "未找到主程序文件，请检查项目结构")
                 
         except Exception as e:
             logger.error(f"启动主程序失败: {e}")
@@ -424,9 +424,9 @@ class PythonLauncher:
         os.makedirs('config', exist_ok=True)
         os.makedirs('logs', exist_ok=True)
 
-        # ⚠️ 不在这里做 check_for_updates 等耗时动作
+        # 不在这里做 check_for_updates 等耗时动作
 
-        html_rel = 'static/launch.html' if self.config_manager.is_environment_configured() else 'static/index1.html'
+        html_rel = 'static/launch.html' if self.config_manager.is_environment_configured() else 'static/config.html'
         html_abs = self._abs_path(html_rel)
         file_url = 'file:///' + html_abs.replace('\\', '/')
 

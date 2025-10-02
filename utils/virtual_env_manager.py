@@ -8,9 +8,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class VirtualEnvManager:
-    def __init__(self, python_manager=None, config=None):
+    def __init__(self, python_manager=None, config=None, config_manager=None):
         self.python_manager = python_manager
         self.config = config or {}
+        self.config_manager = config_manager
         self.common_env_names = ['venv', '.venv', '.conda', 'conda_env', 'env', '.env']
         
     def detect_virtual_envs(self):

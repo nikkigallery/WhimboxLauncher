@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>奇想盒 · 启动器</title>
+
+  <!-- 复用你现有样式 -->
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/notifications.css"/>
+  <link rel="stylesheet" href="css/window.css"/>
+
+  <!-- inert 兜底：即使宿主不完整支持 inert，也尽量屏蔽交互 -->
+  <style>
+    [inert] { pointer-events: none; user-select: none; }
+    [inert] * { pointer-events: none !important; }
+    /* Drawer 显隐（确保与你的 window.css 条件一致，这里用 aria-hidden 控制） */
+    #drawer[aria-hidden="true"] {
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #drawer[aria-hidden="false"] {
+      transform: translateY(0%);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #drawer {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: min(720px, 92vw);
+      max-height: 80vh;
+      transition: transform .25s ease, opacity .2s ease;
+      z-index: 1001;
+    }
+    .modal { z-index: 1100; } /* 确保 Modal 盖过 Drawer（如有需要） */
+  </style>
+</head>
+<body class="bg-cover">
+  <!-- 背景 -->
+  <div class="bg-overlay"></div>
+
+  <!-- 右上角：透明最小化/关闭（事件绑定在 window.js） -->
+  <div class="window-controls">
+    <button id="win-min" class="win-btn" title="最小化">−</button>
+    <button id="win-close" class="win-btn" title="关闭">×</button>
+  </div>
+
+  <!-- 左上角品牌区 -->
+  <header class="brand">
+    <img class="brand__logo" src="assets/appicon.png" alt="奇想盒 Logo"/>
+    <div class="brand__meta">
+      <h1 class="brand__title">奇想盒启动器(测试版)</h1>
+      <div class="brand__version" id="launcher-version">v0.0.0</div>
+      <!-- <div class="brand__subtitle">环境已就绪 · 一键启动</div> -->
+    </div>
+  </header>
+
+  <!-- 右下角主操作 -->
+  <div class="cta">
+    <button id="btn-launch" class="btn btn-primary" title="启动奇想盒" onclick="startProjectFlow()">
+      启动奇想盒
+    </button>
+    <div class="cta__split"></div>
+    <button id="btn-advanced" class="btn btn-ghost" title="高级启动设置 / 打开项目文件夹" onclick="openDrawer()">
+      ▼
+    </button>
+  </div>
+
+  <!-- Modal：启动进度 & 日志 -->
+  <div id="setup-modal" class="modal" aria-hidden="true">
+    <div class="modal__dialog">
+      <div class="modal__header">
+        <h2>启动中</h2>
+        <button class="modal__close" aria-label="关闭" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal__body">
+        <div class="progress">
+          <div id="progress-bar" class="progress__bar" style="width:0%;"></div>
+        </div>
+        <div id="status-text" class="status">准备就绪 ✨</div>
+        <div id="log-section" class="log">
+          <div id="log-content" class="log__content"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal__backdrop" onclick="closeModal()"></div>
+  </div>
+
+  <!-- Drawer：高级启动设置（默认收起，aria-hidden=true 且 inert） -->
+  <aside id="drawer" class="drawer" aria-hidden="true" inert>
+    <div class="drawer__handle">
+      <span>高级启动设置</span>
+      <div class="drawer__actions">
+        <button class="btn btn-text" onclick="openProjectFolder()">打开项目文件夹</button>
+        <button class="btn btn-text" onclick="closeDrawer()">收起</button>
+      </div>
+    </div>
+
+    <div class="drawer__content">
+      <div class="tab-container">
+        <div class="tab-buttons">
+          <button class="tab-button active" data-tab="options" onclick="switchTab('options', event)">⚙️ 启动选项</button>
+          <button class="tab-button" data-tab="about" onclick="switchTab('about', event)">ℹ️ 关于</button>
+        </div>
+
+        <!-- 启动选项 -->
+        <section id="options-tab" class="tab-content active">
+          <div class="section">
+            <h3>⚙️ 启动选项</h3>
+            <label class="checkbox">
+              <input type="checkbox" id="check-updates" />
+              🔄 启动前检查更新（默认关闭）
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="show-console" />
+              🖥️ 显示控制台窗口
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" id="auto-minimize" />
+              📥 启动后最小化启动器
+            </label>
+          </div>
+
+          <div class="section">
+            <h3>📦 固定信息</h3>
+            <div class="form-group">
+              <label for="github-repo">GitHub 仓库</label>
+              <input type="text" id="github-repo" value="https://github.com/nikkigallery/Whimbox" readonly disabled>
+            </div>
+            <div class="form-group">
+              <label for="python-version">Python 版本</label>
+              <input type="text" id="python-version" value="3.12" readonly disabled>
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn" onclick="saveLaunchOptions()">💾 保存启动选项</button>
+            <button class="btn btn-secondary" onclick="resetLaunchOptions()">🔄 重置默认</button>
+            <button class="btn btn-outline" onclick="checkUpdates()">🔍 立即检查更新</button>
+            <button class="btn btn-danger" onclick="reconfigure()">🧰 重新配置环境</button>
+          </div>
+        </section>
+
+        <!-- 关于 -->
+        <section id="about-tab" class="tab-content">
+          <div class="section">
+            <h3>ℹ️ 关于奇想盒启动器</h3>
+            <p>本启动页假定已有可运行环境，仅负责一键启动与基础维护操作（检查更新 / 重新配置 / 打开目录）。</p>
+            <p>点击右下角“启动奇想盒”即可运行主程序。</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 逻辑脚本 -->
+  <script src="js/launch.js"></script>
+  <!-- 复用你现有的 window.js（绑定最小化/关闭等） -->
+  <script src="js/window.js"></script>
+</body>
+</html>

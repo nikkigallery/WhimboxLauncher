@@ -255,7 +255,8 @@ class GitManager:
         p = self._git(["fetch", "--all", "--prune"], cwd=repo_dir, timeout=600)
         if p.returncode != 0:
             logger.warning(f"fetch 失败：{p.stderr or p.stdout}")
-            return False
+            # 不直接返回False，继续尝试后续操作
+        
         target_branch = branch or self._detect_origin_default_branch(repo_dir) or "main"
         p = self._git(["checkout", "-B", target_branch, f"origin/{target_branch}"], cwd=repo_dir, timeout=3000)
         if p.returncode != 0:
