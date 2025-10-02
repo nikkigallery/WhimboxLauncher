@@ -5,7 +5,7 @@ const DEFAULTS = {
   use_pip_update: true,
   use_git_mirror: true,
   use_python_mirror: true,
-  check_updates: true,
+  check_updates: false,
   auto_start: true,
   show_console: false,
   git_mirror_url: "https://github.com.cnpmjs.org",
@@ -31,8 +31,8 @@ const DEFAULTS = {
   ui_settings: {
     theme: "infinity_nikki",
     language: "zh-CN",
-    window_width: 1080,
-    window_height: 720,
+    window_width: 1296,
+    window_height: 864,
     remember_window_size: true
   }
 };
