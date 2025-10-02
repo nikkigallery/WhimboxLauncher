@@ -14,8 +14,16 @@ logger = logging.getLogger(__name__)
 class PythonManager:
     def __init__(self, config=None):
         self.config = config or {}
+        # 先找 Python
         self.python_path = self._find_python_executable()
-        self.conda_path = self._find_conda_executable()
+
+        if self.python_path:
+            # 找到 Python 后直接跳过 Conda 探测
+            self.conda_path = None
+            logger.info("已找到 Python，按策略跳过 Conda 探测。")
+        else:
+            # 仅在未找到 Python 时，才去尝试探测 Conda
+            self.conda_path = self._find_conda_executable()
 
     # ---------------------------
     # 路径/探测
