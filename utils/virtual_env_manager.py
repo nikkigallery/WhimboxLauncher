@@ -91,6 +91,9 @@ class VirtualEnvManager:
             
             if result.returncode == 0:
                 logger.info(f"虚拟环境 {env_name} 创建完成")
+                # 更新config中依赖成功标志
+                if self.config_manager:
+                    self.config_manager.set('environment_configured', True)
                 return True
             else:
                 logger.error(f"创建虚拟环境失败: {result.stderr}")
@@ -126,6 +129,9 @@ class VirtualEnvManager:
             
             if result.returncode == 0:
                 logger.info(f"Conda环境 {env_name} 创建完成")
+                # 更新config中依赖成功标志
+                if self.config_manager:
+                    self.config_manager.set('environment_configured', True)
                 return True
             else:
                 logger.error(f"创建Conda环境失败: {result.stderr}")
