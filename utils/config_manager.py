@@ -67,7 +67,7 @@ class ConfigManager:
     def get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
         return {
-            "github_repo": "https://kkgithub.com/nikkigallery/Whimbox",
+            "github_repo": "https://github.com/nikkigallery/Whimbox",
             "python_version": "3.12",
             "use_pip_update": True,
             "use_git_mirror": True,
@@ -89,8 +89,8 @@ class ConfigManager:
                 "conda_env_name": "conda_env"
             },
             "advanced_settings": {
-                "download_timeout": 300,
-                "install_timeout": 600,
+                "download_timeout": 5000,
+                "install_timeout": 6000,
                 "max_retries": 3,
                 "log_level": "INFO",
                 "cleanup_temp_files": True
@@ -98,8 +98,8 @@ class ConfigManager:
             "ui_settings": {
                 "theme": "infinity_nikki",
                 "language": "zh-CN",
-                "window_width": 1080,
-                "window_height": 720,
+                "window_width": 1296,
+                "window_height": 864,
                 "remember_window_size": True
             }
         }

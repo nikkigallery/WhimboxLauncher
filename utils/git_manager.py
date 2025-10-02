@@ -4,6 +4,7 @@ import requests
 import logging
 import shutil
 import platform
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -13,93 +14,60 @@ logger = logging.getLogger(__name__)
 class GitManager:
     def __init__(self, config: Optional[dict] = None):
         self.config = config or {}
-        # 下载缓存目录：.\temp
         self.temp_dir = Path(self.config.get("download_temp_dir", "./temp")).resolve()
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.git_path = self._find_git_executable()
 
     # ---------------------------
-    # 工具方法
+    # 基础工具
     # ---------------------------
     def _find_git_executable(self) -> Optional[str]:
-        """查找 Git 可执行文件路径（含 ./git 多路径）"""
-
         cwd = os.getcwd()
         possible_paths: List[str] = [
-            # PATH 中
-            "git",
-            "git.exe",
-            # 常见系统路径
+            "git", "git.exe",
             r"C:\Program Files\Git\bin\git.exe",
             r"C:\Program Files\Git\cmd\git.exe",
             r"C:\Program Files (x86)\Git\bin\git.exe",
             r"C:\Program Files (x86)\Git\cmd\git.exe",
-            # 项目内便携安装（多种可能）
             os.path.join(cwd, "git", "git.exe"),
             os.path.join(cwd, "git", "cmd", "git.exe"),
             os.path.join(cwd, "git", "bin", "git.exe"),
             os.path.join(cwd, "git", "usr", "bin", "git.exe"),
-            # WSL/MinGW 等（以防万一）
-            "/usr/bin/git",
-            "/bin/git",
+            "/usr/bin/git", "/bin/git",
         ]
-
         for path in possible_paths:
             try:
-                result = subprocess.run(
-                    [path, "--version"],
-                    capture_output=True,
-                    text=True,
-                    shell=True,
-                    timeout=5,
-                )
+                result = subprocess.run([path, "--version"], capture_output=True, text=True, shell=True, timeout=5)
                 if result.returncode == 0:
                     logger.info(f"找到Git: {path}")
                     return path
             except (subprocess.TimeoutExpired, FileNotFoundError):
                 continue
-
         logger.warning("未找到Git可执行文件")
         return None
 
     def _detect_arch_token(self) -> str:
-        """
-        返回 PortableGit 文件名中的架构标识：
-        - x86_64 / AMD64 / x64 -> '64-bit'
-        - ARM64 / aarch64      -> 'arm64'
-        其他情况默认 '64-bit'
-        """
         m = platform.machine().lower()
         if any(x in m for x in ["arm64", "aarch64"]):
             return "arm64"
         if any(x in m for x in ["x86_64", "amd64", "x64"]):
             return "64-bit"
-        # Windows 上大多数还是 x64
         return "64-bit"
 
     def _portablegit_candidates(self, version: str, arch_token: str) -> List[str]:
-        """
-        生成下载候选 URL（先镜像、后官方），均为 PortableGit 自解压 7z
-        """
-        # 指定的镜像（示例为 2.51.0 arm64），会根据 arch/version 自动替换
         mirror_sf = (
             f"https://sourceforge.net/projects/git-for-windows.mirror/files/"
             f"v{version}.windows.1/PortableGit-{version}-{arch_token}.7z.exe/download"
         )
-        # 官方 GitHub
         official = (
             f"https://github.com/git-for-windows/git/releases/download/"
             f"v{version}.windows.1/PortableGit-{version}-{arch_token}.7z.exe"
         )
-
-        # 允许从 config 注入自定义候选（优先）
         custom_list: List[str] = self.config.get("git_download_urls", [])
         candidates = []
         candidates.extend(custom_list)
-        candidates.append(mirror_sf)  # 镜像优先
-        candidates.append(official)   # 官方回退
-
-        # 去重保持顺序
+        candidates.append(mirror_sf)
+        candidates.append(official)
         uniq, seen = [], set()
         for u in candidates:
             if u and u not in seen:
@@ -108,7 +76,6 @@ class GitManager:
         return uniq
 
     def _download_file(self, url: str, file_path: Path, name: str = "文件") -> bool:
-        """下载文件到 file_path（覆盖），支持重定向、进度日志"""
         try:
             logger.info(f"正在下载{name}：{url}")
             with requests.get(url, stream=True, timeout=30, allow_redirects=True) as r:
@@ -129,6 +96,97 @@ class GitManager:
             logger.error(f"下载{name}失败：{e}")
             return False
 
+    def _normalize_repo_id(self, url: str) -> Optional[tuple]:
+        """
+        将远程URL规范化为 (host, owner, repo) 三元组，host 统一到 github.com，
+        支持以下形式：
+          - https://github.com/owner/repo(.git)
+          - https://kkgithub.com/owner/repo(.git)
+          - git@github.com:owner/repo(.git)
+          - ssh://git@github.com/owner/repo(.git)
+        解析失败返回 None
+        """
+        if not url:
+            return None
+        u = url.strip()
+
+        # 1) SSH 短格式：git@host:owner/repo(.git)
+        if u.startswith("git@"):
+            # 例：git@github.com:nikkigallery/WhimboxLauncher.git
+            try:
+                left, right = u.split(":", 1)
+                host = left.split("@", 1)[1].lower()
+                path = right
+            except Exception:
+                return None
+            # 统一镜像到 github.com
+            if host == "kkgithub.com":
+                host = "github.com"
+            parts = path.strip("/").split("/")
+            if len(parts) >= 2:
+                owner = parts[0]
+                repo = parts[1]
+                if repo.endswith(".git"):
+                    repo = repo[:-4]
+                return (host, owner, repo)
+            return None
+
+        # 2) 其它（含 https/ssh://）
+        # 去掉协议头
+        for pfx in ("ssh://", "https://", "http://"):
+            if u.lower().startswith(pfx):
+                u = u[len(pfx):]
+                break
+        # 剥离认证段（如 git@）
+        if "@" in u and not u.startswith("github.com") and not u.startswith("kkgithub.com"):
+            u = u.split("@", 1)[1]
+        # host 与 path
+        if "/" not in u:
+            return None
+        host, path = u.split("/", 1)
+        host = host.lower().strip()
+        if host == "kkgithub.com":
+            host = "github.com"
+        parts = path.strip("/").split("/")
+        if len(parts) >= 2:
+            owner = parts[0]
+            repo = parts[1]
+            if repo.endswith(".git"):
+                repo = repo[:-4]
+            return (host, owner, repo)
+        return None
+
+    def _to_https_repo_url(self, host: str, owner: str, repo: str) -> str:
+        """将三元组组装为标准 https URL（统一为 github.com）。"""
+        host = "github.com" if host in ("github.com", "kkgithub.com") else host
+        return f"https://{host}/{owner}/{repo}.git"
+
+    def _are_equivalent_repo(self, a_url: str, b_url: str, aliases: Optional[list] = None) -> bool:
+        """
+        判断两个URL是否等价仓库：
+          - 解析 (host, owner, repo)，host 镜像归一；
+          - owner 相同且 repo 相同 -> 等价；
+          - 若提供别名列表（如 ["Whimbox", "WhimboxLauncher"]），只要 repo 在同一别名集合内也视为等价；
+        """
+        ida = self._normalize_repo_id(a_url)
+        idb = self._normalize_repo_id(b_url)
+        if not ida or not idb:
+            return False
+        (ha, oa, ra) = ida
+        (hb, ob, rb) = idb
+        if ha != hb:
+            # 如果未来引入企业Git，host不同则不等价
+            return False
+        if oa != ob:
+            return False
+        if ra == rb:
+            return True
+        # 别名匹配
+        if aliases:
+            s = set(x.lower() for x in aliases)
+            return (ra.lower() in s) and (rb.lower() in s)
+        return False
+
     def _safe_remove(self, p: Path):
         try:
             if p.is_file():
@@ -137,6 +195,103 @@ class GitManager:
                 shutil.rmtree(p, ignore_errors=True)
         except Exception as e:
             logger.warning(f"清理失败：{p} - {e}")
+
+    def _rmtree_retry_or_backup(self, target_path: Path, retries: int = 3, delay: float = 0.25) -> bool:
+        for i in range(retries):
+            try:
+                if target_path.exists():
+                    shutil.rmtree(target_path, ignore_errors=False)
+                break
+            except Exception as e:
+                logger.warning(f"删除失败({i+1}/{retries})：{e}，{delay}s后重试")
+                time.sleep(delay)
+        if target_path.exists():
+            try:
+                ts = time.strftime("%Y%m%d_%H%M%S")
+                bak = target_path.with_name(target_path.name + f".bak_{ts}")
+                shutil.move(str(target_path), str(bak))
+                logger.info(f"无法删除，已改为备份：{bak}")
+            except Exception as e:
+                logger.error(f"备份失败：{e}")
+                return False
+        return True
+
+    def _backup_dir(self, target_path: Path) -> bool:
+        try:
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            bak = target_path.with_name(target_path.name + f".bak_{ts}")
+            shutil.move(str(target_path), str(bak))
+            logger.info(f"已备份目录：{bak}")
+            return True
+        except Exception as e:
+            logger.error(f"备份目录失败：{e}")
+            return False
+
+    def _git(self, args: list, cwd: Optional[str] = None, timeout: int = 600) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [self.git_path] + args,
+            capture_output=True,
+            text=True,
+            shell=True,
+            cwd=cwd,
+            timeout=timeout,
+        )
+
+    def _detect_origin_default_branch(self, repo_dir: str) -> Optional[str]:
+        p = self._git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=repo_dir, timeout=300)
+        if p.returncode == 0 and p.stdout.strip():
+            short = p.stdout.strip()
+            if "/" in short:
+                return short.split("/", 1)[1]
+        p = self._git(["remote", "show", "origin"], cwd=repo_dir, timeout=300)
+        if p.returncode == 0:
+            for line in (p.stdout or "").splitlines():
+                line = line.strip()
+                if line.lower().startswith("head branch:"):
+                    return line.split(":", 1)[1].strip()
+        return None
+
+    def _repair_existing_repo(self, repo_dir: str, branch: Optional[str]) -> bool:
+        p = self._git(["fetch", "--all", "--prune"], cwd=repo_dir, timeout=600)
+        if p.returncode != 0:
+            logger.warning(f"fetch 失败：{p.stderr or p.stdout}")
+            return False
+        target_branch = branch or self._detect_origin_default_branch(repo_dir) or "main"
+        p = self._git(["checkout", "-B", target_branch, f"origin/{target_branch}"], cwd=repo_dir, timeout=3000)
+        if p.returncode != 0:
+            logger.warning(f"checkout {target_branch} 失败：{p.stderr or p.stdout}")
+            p = self._git(["checkout", "-b", target_branch], cwd=repo_dir, timeout=3000)
+            if p.returncode != 0:
+                logger.error(f"创建分支 {target_branch} 失败：{p.stderr or p.stdout}")
+                return False
+        p = self._git(["reset", "--hard", f"origin/{target_branch}"], cwd=repo_dir, timeout=3000)
+        if p.returncode != 0:
+            logger.error(f"reset --hard 失败：{p.stderr or p.stdout}")
+            return False
+        p = self._git(["clean", "-fd"], cwd=repo_dir, timeout=120)
+        if p.returncode != 0:
+            logger.warning(f"clean -fd 警告：{p.stderr or p.stdout}")
+        logger.info(f"仓库已修复到 origin/{target_branch}")
+        return True
+
+    def _is_url_responsive(self, url: str, timeout_ms: int = 5000) -> bool:
+        timeout = timeout_ms / 1000.0
+        headers = {"Range": "bytes=0-0", "User-Agent": "GitManager/1.0"}
+        try:
+            r = requests.head(url, timeout=timeout, allow_redirects=True)
+            if r.ok:
+                return True
+        except Exception:
+            pass
+        try:
+            r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True)
+            return r.ok
+        except Exception:
+            return False
+
+    def _to_mirror(self, u: str) -> str:
+        prefix = "https://github.com/"
+        return ("https://kkgithub.com/" + u[len(prefix):]) if u.startswith(prefix) else u
 
     # ---------------------------
     # 对外 API
@@ -148,13 +303,7 @@ class GitManager:
         if not self.git_path:
             return None
         try:
-            result = subprocess.run(
-                [self.git_path, "--version"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=10,
-            )
+            result = subprocess.run([self.git_path, "--version"], capture_output=True, text=True, shell=True, timeout=10)
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception as e:
@@ -162,22 +311,13 @@ class GitManager:
         return None
 
     def install_git(self, install_dir: Optional[str] = None, version: str = "2.51.0") -> bool:
-        """
-        安装 PortableGit 到 install_dir（默认 ./git）
-        - 先试镜像（SourceForge），失败再试官方（GitHub）
-        - 自解压 7z：使用 -y -o 解压，不用 Inno 的静默参数
-        - 下载缓存位于 ./temp，成功后删除下载包
-        """
         if install_dir is None:
             install_dir = os.path.join(os.getcwd(), "git")
-
         install_dir_path = Path(install_dir).resolve()
         install_dir_path.mkdir(parents=True, exist_ok=True)
 
-        arch_token = self._detect_arch_token()  # '64-bit' 或 'arm64'
+        arch_token = self._detect_arch_token()
         candidates = self._portablegit_candidates(version, arch_token)
-
-        # 下载到 ./temp
         filename = f"PortableGit-{version}-{arch_token}.7z.exe"
         down_path = (self.temp_dir / filename)
 
@@ -185,28 +325,20 @@ class GitManager:
 
         ok_download = False
         for url in candidates:
-            # 每次失败会覆盖重下
             if down_path.exists():
                 self._safe_remove(down_path)
             if self._download_file(url, down_path, name=f"Git {version}({arch_token})"):
                 ok_download = True
                 break
-
         if not ok_download:
             logger.error("Git 安装包下载失败（镜像与官方均不可用）")
             return False
 
-        # 自解压到 install_dir：7z SFX 支持 -y -o
         try:
             logger.info("正在解压 Git（7z 自解压）...")
-            # 注意：-o<DIR> 紧贴参数，不要有空格
-            # 使用 shell=True 可以支持路径中空格
             result = subprocess.run(
                 [str(down_path), "-y", f"-o{str(install_dir_path)}"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=600,
+                capture_output=True, text=True, shell=True, timeout=600,
             )
             if result.returncode != 0:
                 logger.error(f"Git 解压失败：{result.stderr or result.stdout}")
@@ -218,140 +350,89 @@ class GitManager:
             logger.error(f"Git 解压异常：{e}")
             return False
         finally:
-            # 成功或失败都尽量清理下载缓存
             self._safe_remove(down_path)
 
-        # 重新查找 git 可执行文件
         self.git_path = self._find_git_executable()
         if not self.git_path:
             logger.error("解压完成但未找到 git.exe，请检查目录结构")
             return False
-
         logger.info("Git 安装完成")
         return True
 
     def clone_repository(self, repo_url: str, target_dir: str = "./app", branch: Optional[str] = None) -> bool:
-        """克隆 Git 仓库：原链接优先；若原链接 300ms 内无响应则自动改用 kkgithub 镜像。
-        若已存在同仓库则 pull；若克隆失败会在两种 URL 间回退重试。"""
+        """目录冲突自动删除/备份；远程匹配则修复；原链/镜像智能切换。"""
         if not self.git_path:
             logger.error("Git 未安装")
             return False
 
-        import shutil
-        import time
-        from pathlib import Path
-        import requests
-
-        def _is_url_responsive(url: str, timeout_ms: int = 300) -> bool:
-            """在 timeout_ms 内检查 URL 是否可快速响应。
-            先 HEAD，不行再用 GET + Range: bytes=0-0，尽量减少流量。"""
-            timeout = timeout_ms / 1000.0
-            headers = {"Range": "bytes=0-0", "User-Agent": "GitManager/1.0"}
-            try:
-                # 有些站点不支持 HEAD，先试 HEAD，再回退 GET
-                r = requests.head(url, timeout=timeout, allow_redirects=True)
-                if r.ok:
-                    return True
-            except Exception:
-                pass
-            try:
-                r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True)
-                return r.ok
-            except Exception:
-                return False
-
-        def _to_mirror(u: str) -> str:
-            """https://github.com/owner/repo(.git)?  ->  https://kkgithub.com/owner/repo(.git)?"""
-            prefix = "https://github.com/"
-            if u.startswith(prefix):
-                return "https://kkgithub.com/" + u[len(prefix):]
-            return u
-
         try:
-            # 确保目标目录父级存在
-            os.makedirs(os.path.dirname(target_dir) if os.path.dirname(target_dir) else ".", exist_ok=True)
+            os.makedirs(os.path.dirname(target_dir) or ".", exist_ok=True)
             target_path = Path(target_dir).resolve()
 
-            # 已存在：若是同一仓库则 pull
             if target_path.exists():
                 if self.is_git_repository(target_dir):
                     logger.info(f"检测到已有 Git 仓库: {target_dir}")
-
                     current_remote = self.get_remote_url(target_dir)
-                    expected_repo_name = repo_url.rstrip("/").split("/")[-1].replace(".git", "")
-                    current_remote_clean = (
-                        current_remote.rstrip("/").split("/")[-1].replace(".git", "")
-                        if current_remote else None
-                    )
 
-                    if current_remote and (current_remote == repo_url or current_remote_clean == expected_repo_name):
-                        logger.info("远程仓库匹配，执行 git pull ...")
+                    # 可选：来自配置的“仓库名别名”列表，用于吞并 Whimbox / WhimboxLauncher 一类改名
+                    aliases = self.config.get("repo_aliases", None)  # 例如 ["Whimbox", "WhimboxLauncher"]
 
-                        # 可选切分支
-                        if branch:
-                            original_cwd = os.getcwd()
-                            os.chdir(target_dir)
-                            try:
-                                r_fetch = subprocess.run(
-                                    [self.git_path, "fetch", "origin"],
-                                    capture_output=True, text=True, shell=True, timeout=300,
-                                )
-                                if r_fetch.returncode != 0:
-                                    logger.warning(f"fetch 失败: {r_fetch.stderr}")
-                                    return False
+                    equiv = False
+                    if current_remote:
+                        try:
+                            equiv = self._are_equivalent_repo(repo_url, current_remote, aliases=aliases)
+                        except Exception as e:
+                            logger.warning(f"等价仓库判断失败：{e}")
+                            equiv = False
 
-                                r_checkout = subprocess.run(
-                                    [self.git_path, "checkout", branch],
-                                    capture_output=True, text=True, shell=True, timeout=300,
-                                )
-                                if r_checkout.returncode != 0:
-                                    logger.error(f"切换分支失败: {r_checkout.stderr}")
-                                    return False
-                                logger.info(f"已切换到分支 '{branch}'")
-                            finally:
-                                os.chdir(original_cwd)
-
-                        return self.pull_repository(target_dir)
+                    if equiv:
+                        logger.info("远程仓库等价（协议/镜像/别名/改名容忍），尝试对齐远程并修复/更新...")
+                        # 若本地是 SSH、期望是 HTTPS，或者要切换到镜像，统一把 origin 调整到期望URL（或后续你检测速度后选择的URL）
+                        # 这里先把 origin 对齐到 repo_url（如果你想优先镜像，可以换成 mirror_url）
+                        p = self._git(["remote", "set-url", "origin", repo_url], cwd=target_dir, timeout=30)
+                        if p.returncode != 0:
+                            logger.warning(f"remote set-url 警告：{p.stderr or p.stdout}")
+                        # 走修复路径（fetch/reset/clean/checkout）
+                        if self._repair_existing_repo(target_dir, branch):
+                            return True
+                        logger.warning("修复失败，作为降级将执行备份后重克隆")
+                        if not self._backup_dir(Path(target_dir).resolve()):
+                            return False
                     else:
-                        logger.warning(f"远程仓库不匹配，期望: {repo_url}, 实际: {current_remote}，将重新克隆")
-                        shutil.rmtree(target_path, ignore_errors=True)
-                        logger.info(f"旧仓库已删除: {target_path}")
+                        logger.warning(f"远程不匹配：期望 {repo_url}，实际 {current_remote}。备份后重克隆。")
+                        if not self._backup_dir(Path(target_dir).resolve()):
+                            return False
+
                 else:
-                    logger.warning(f"{target_dir} 存在但不是 Git 仓库，正在清理...")
-                    shutil.rmtree(target_path, ignore_errors=True)
-                    logger.info(f"非 Git 目录已删除: {target_path}")
+                    logger.warning(f"{target_dir} 存在但不是 Git 仓库，尝试删除/备份 ...")
+                    if not self._rmtree_retry_or_backup(target_path):
+                        return False
 
-            # 首次克隆 / 清理后克隆
-            logger.info(f"准备克隆仓库 -> {target_dir}")
-
-            # —— 原链接优先；300ms 内无响应则切换镜像 ——
-            # 这里用仓库页面/地址作快速连通性预检（不直接测 git 协议），仅用于决定优先顺序
-            start = time.perf_counter()
-            origin_fast = _is_url_responsive(repo_url, timeout_ms=1000)
-            elapsed_ms = (time.perf_counter() - start) * 1000
-            logger.info(f"原链接预检：{'可用' if origin_fast else '超时/不可用'}，耗时≈{elapsed_ms:.0f}ms")
-
-            mirror_url = _to_mirror(repo_url)
-            # 按优先级决定尝试顺序
+            mirror_url = self._to_mirror(repo_url)
+            origin_fast = self._is_url_responsive(repo_url, timeout_ms=5000)
             try_list = [repo_url, mirror_url] if origin_fast else [mirror_url, repo_url]
 
-            # 开始克隆（若第一个失败自动回退第二个）
             for idx, trial_url in enumerate(try_list, start=1):
-                # 规范参数顺序：git clone [--branch/-b BR] <repo> <dir>
                 clone_cmd = [self.git_path, "clone"]
                 if branch:
                     clone_cmd.extend(["-b", branch])
                 clone_cmd.extend([trial_url, str(target_path)])
 
-                logger.info(f"[尝试 {idx}] git clone {trial_url} ...")
-                result = subprocess.run(
-                    clone_cmd, capture_output=True, text=True, shell=True, timeout=900
-                )
+                logger.info(f"[尝试 {idx}] git clone {trial_url} -> {target_path}")
+                result = subprocess.run(clone_cmd, capture_output=True, text=True, shell=True, timeout=900)
+
                 if result.returncode == 0:
                     logger.info("仓库克隆完成")
                     return True
-                else:
-                    logger.warning(f"克隆失败（尝试 {idx}）：{result.stderr or result.stdout}")
+
+                msg = result.stderr or result.stdout or ""
+                logger.warning(f"克隆失败（尝试 {idx}）：{msg}")
+
+                if "already exists" in msg and target_path.exists():
+                    logger.warning("检测到目标目录仍存在，执行一次删除/备份后换源重试")
+                    if not self._rmtree_retry_or_backup(target_path):
+                        return False
+                    # 继续下一轮尝试（换另一个源）
 
             logger.error("仓库克隆失败（原链接与镜像均失败）")
             return False
@@ -360,30 +441,30 @@ class GitManager:
             logger.error(f"克隆仓库失败: {e}")
             return False
 
-
     def pull_repository(self, repo_dir: str = ".") -> bool:
-        """拉取更新"""
         if not self.git_path:
             logger.error("Git 未安装")
             return False
         try:
-            original_cwd = os.getcwd()
-            os.chdir(repo_dir)
             logger.info("正在拉取仓库更新 ...")
-            result = subprocess.run(
-                [self.git_path, "pull"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=300,
-            )
-            os.chdir(original_cwd)
-            if result.returncode == 0:
-                logger.info("仓库更新完成")
-                return True
-            else:
-                logger.error(f"仓库更新失败: {result.stderr or result.stdout}")
+            p = self._git(["fetch", "--all", "--prune"], cwd=repo_dir, timeout=600)
+            if p.returncode != 0:
+                logger.error(f"fetch 失败: {p.stderr or p.stdout}")
                 return False
+            # 使用远端默认分支，更强一致
+            target_branch = self._detect_origin_default_branch(repo_dir) or "main"
+            p = self._git(["checkout", target_branch], cwd=repo_dir, timeout=120)
+            if p.returncode != 0:
+                logger.warning(f"checkout 警告: {p.stderr or p.stdout}")
+            p = self._git(["reset", "--hard", f"origin/{target_branch}"], cwd=repo_dir, timeout=3000)
+            if p.returncode != 0:
+                logger.error(f"reset --hard 失败: {p.stderr or p.stdout}")
+                return False
+            p = self._git(["clean", "-fd"], cwd=repo_dir, timeout=120)
+            if p.returncode != 0:
+                logger.warning(f"clean 警告: {p.stderr or p.stdout}")
+            logger.info("仓库更新完成（已与远端强一致）")
+            return True
         except Exception as e:
             logger.error(f"拉取仓库更新失败: {e}")
             return False
@@ -392,16 +473,7 @@ class GitManager:
         if not self.git_path:
             return None
         try:
-            original_cwd = os.getcwd()
-            os.chdir(repo_dir)
-            result = subprocess.run(
-                [self.git_path, "branch", "--show-current"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=10,
-            )
-            os.chdir(original_cwd)
+            result = self._git(["branch", "--show-current"], cwd=repo_dir, timeout=10)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
@@ -415,16 +487,7 @@ class GitManager:
         if not self.git_path:
             return None
         try:
-            original_cwd = os.getcwd()
-            os.chdir(repo_dir)
-            result = subprocess.run(
-                [self.git_path, "remote", "get-url", "origin"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=10,
-            )
-            os.chdir(original_cwd)
+            result = self._git(["remote", "get-url", "origin"], cwd=repo_dir, timeout=10)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
@@ -441,16 +504,7 @@ class GitManager:
         if not self.git_path:
             return None
         try:
-            original_cwd = os.getcwd()
-            os.chdir(repo_dir)
-            result = subprocess.run(
-                [self.git_path, "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                timeout=10,
-            )
-            os.chdir(original_cwd)
+            result = self._git(["rev-parse", "HEAD"], cwd=repo_dir, timeout=10)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
@@ -466,22 +520,12 @@ class GitManager:
             return False
         try:
             if user_name:
-                r1 = subprocess.run(
-                    [self.git_path, "config", "--global", "user.name", user_name],
-                    capture_output=True,
-                    text=True,
-                    shell=True,
-                )
+                r1 = self._git(["config", "--global", "user.name", user_name])
                 if r1.returncode != 0:
                     logger.error(f"设置Git用户名失败: {r1.stderr}")
                     return False
             if user_email:
-                r2 = subprocess.run(
-                    [self.git_path, "config", "--global", "user.email", user_email],
-                    capture_output=True,
-                    text=True,
-                    shell=True,
-                )
+                r2 = self._git(["config", "--global", "user.email", user_email])
                 if r2.returncode != 0:
                     logger.error(f"设置Git邮箱失败: {r2.stderr}")
                     return False

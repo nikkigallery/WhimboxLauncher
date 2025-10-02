@@ -190,7 +190,7 @@ function startSetup() {
   pywebview.api.startSetup().then(result => {
     // 后端在执行过程中可通过 window.updateProgress(%) 回调更新
     // 这里不强行写死 100%，交由后端驱动；若后端只给完成回执，可在此收尾：
-    if(result?.success){ updateProgress(100, '设置完成'); }
+    if(result?.success){ updateProgress(5, '读取设置完成'); }
     else { showNotification('设置失败：' + (result?.message||''), 'error'); }
   }).catch(error => {
     console.error('设置失败:', error);

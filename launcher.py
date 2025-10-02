@@ -37,6 +37,36 @@ logger = logging.getLogger(__name__)
 class Api:
     def __init__(self, launcher):
         self.launcher = launcher
+        self.window = None  # 由外部注入
+
+    # ---- 注入 window 对象 ----
+    def set_window(self, window):
+        self.window = window
+
+    # ---- 最小化 ----
+    def minimizeWindow(self):
+        try:
+            win = self.window or (webview.windows[0] if webview.windows else None)
+            if win is None:
+                return {"success": False, "message": "未找到窗口实例"}
+            win.minimize()
+            return {"success": True, "message": "窗口已最小化"}
+        except Exception as e:
+            logger.exception("最小化失败")
+            return {"success": False, "message": f"最小化失败: {e}"}
+
+    # ---- 关闭窗口 ----
+    def closeWindow(self):
+        try:
+            win = self.window or (webview.windows[0] if webview.windows else None)
+            if win is None:
+                return {"success": False, "message": "未找到窗口实例"}
+            # 单窗口场景下 destroy 即可
+            win.destroy()
+            return {"success": True, "message": "窗口已关闭"}
+        except Exception as e:
+            logger.exception("关闭失败")
+            return {"success": False, "message": f"关闭失败: {e}"}
         
     def saveConfig(self, config):
         """保存配置"""
@@ -252,9 +282,9 @@ class PythonLauncher:
             
             # 克隆仓库
             if self.config.get('github_repo'):
-                self.update_progress(15, "正在克隆仓库...")
+                self.update_progress(15, "正在下载奇想盒AI源文件...")
                 if not self.git_manager.clone_repository(self.config['github_repo']):
-                    self.update_progress(100, "仓库克隆失败，请检查网络连接和仓库地址")
+                    self.update_progress(100, "下载奇想盒AI源文件失败，请检查网络连接和仓库地址")
                     return
             else:
                 self.update_progress(100, "请先配置GitHub仓库地址")
@@ -302,7 +332,7 @@ class PythonLauncher:
             self.config_manager.mark_first_run_completed()
             self.config_manager.update_last_run()
             
-            self.update_progress(90, "设置完成")
+            self.update_progress(90, "读取设置完成")
             
             # 自动启动项目
             if self.config.get('auto_start', True):
@@ -364,6 +394,11 @@ class PythonLauncher:
         try:
             # 逐个暴露：名字来自 Python 方法名，在 JS 里就是 pywebview.api.saveConfig / ping 等
             self.window.expose(
+                # 窗口操作
+                self.api.set_window,
+                self.api.minimizeWindow,
+                self.api.closeWindow,
+                # 配置相关
                 self.api.saveConfig,
                 self.api.loadConfig,
                 self.api.startSetup,
@@ -403,7 +438,8 @@ class PythonLauncher:
                 height=self.config.get('ui_settings', {}).get('window_height', 720),
                 resizable=True,
                 min_size=(600, 400),
-                frameless=True
+                frameless=True,
+                confirm_close=False,
             )
 
             webview.start(self._on_started, debug=False)
