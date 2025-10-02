@@ -173,17 +173,50 @@ class PythonLauncher:
         self.progress = 0
         self.status = "初始化中..."
         self.is_first_run = self.config_manager.is_first_run()
-        
-        # 初始化管理器
-        self.git_manager = GitManager(self.config)
-        self.python_manager = PythonManager(self.config)
-        self.virtual_env_manager = VirtualEnvManager(self.python_manager, self.config)
-        self.dependency_manager = DependencyManager(self.python_manager, self.config)
-        self.updater = Updater(self.config)
-        
+
+        # ---- 懒加载占位：启动时不创建，避免卡首屏 ----
+        self.git_manager = None
+        self.python_manager = None
+        self.virtual_env_manager = None
+        self.dependency_manager = None
+        self.updater = None
+
+        # 并发保护
+        self._init_lock = threading.Lock()
+        self._managers_ready = False
+
         # 创建API接口
         self.api = Api(self)
-        
+
+    def _init_managers_if_needed(self):
+        """仅在需要时初始化所有管理器；多次调用也只初始化一次。"""
+        if self._managers_ready:
+            return
+        with self._init_lock:
+            if self._managers_ready:
+                return
+            # 真正初始化放到这里
+            self.git_manager = GitManager(self.config)
+            self.python_manager = PythonManager(self.config)
+            self.virtual_env_manager = VirtualEnvManager(self.python_manager, self.config)
+            self.dependency_manager = DependencyManager(self.python_manager, self.config)
+            self.updater = Updater(self.config)
+            self._managers_ready = True
+
+    def _check_updates_async(self):
+        """后台检查更新（可选）"""
+        try:
+            self._init_managers_if_needed()  # Updater 在其中创建
+            if self.config.get('check_updates', True):
+                has_update, update_info = self.updater.check_for_updates()
+                if has_update:
+                    logger.info(f"发现新版本: {update_info['version']}")
+                    # 你也可以在这里用 evaluate_js 提示 UI
+                    if self.window:
+                        self.window.evaluate_js(f"notifyUpdate('{update_info['version']}')")
+        except Exception as e:
+            logger.warning(f"检查更新失败: {e}")
+
     def update_progress(self, progress, status):
         """更新进度和状态"""
         self.progress = progress
@@ -206,6 +239,8 @@ class PythonLauncher:
     def first_run_setup(self):
         """首次运行设置"""
         try:
+            # 先确保懒加载
+            self._init_managers_if_needed()
             self.update_progress(0, "开始首次运行设置...")
             
             # 检查Git
@@ -283,6 +318,8 @@ class PythonLauncher:
     def start_main_program(self):
         """启动主程序"""
         try:
+            # 先确保懒加载
+            self._init_managers_if_needed()
             self.update_progress(95, "正在启动主程序...")
             
             # 检查虚拟环境
@@ -345,37 +382,23 @@ class PythonLauncher:
     
     def run(self):
         """运行启动器"""
-        # 检查管理员权限
         if not self.check_admin_privileges():
             print("请以管理员身份运行此程序！")
-            # input("按任意键退出...")
             return
-        
-        # 创建必要的目录
+
         os.makedirs('config', exist_ok=True)
         os.makedirs('logs', exist_ok=True)
-        
-        # 检查更新
-        if self.config.get('check_updates', True):
-            try:
-                has_update, update_info = self.updater.check_for_updates()
-                if has_update:
-                    logger.info(f"发现新版本: {update_info['version']}")
-                    # 可以在这里添加自动更新逻辑
-            except Exception as e:
-                logger.warning(f"检查更新失败: {e}")
-        
-        # 根据环境配置状态决定显示哪个界面
+
+        # ⚠️ 不在这里做 check_for_updates 等耗时动作
+
         html_rel = 'static/launch.html' if self.config_manager.is_environment_configured() else 'static/index1.html'
         html_abs = self._abs_path(html_rel)
         file_url = 'file:///' + html_abs.replace('\\', '/')
-        
-        # 创建webview窗口
+
         try:
             self.window = webview.create_window(
                 title='',
                 url=file_url,
-                # js_api=self.api, # 注释掉这行是因为打包时出现嵌套错误，通过添加 expose 方法解决
                 width=self.config.get('ui_settings', {}).get('window_width',1080),
                 height=self.config.get('ui_settings', {}).get('window_height', 720),
                 resizable=True,
@@ -383,12 +406,10 @@ class PythonLauncher:
                 frameless=True
             )
 
-            webview.start(self._on_started,debug=True)
-            
+            webview.start(self._on_started, debug=False)
+
         except Exception as e:
             logger.error(f"启动界面失败: {e}")
-            # print(f"启动界面失败: {e}")
-            # input("按任意键退出...")
 
 if __name__ == '__main__':
     try:

@@ -4,19 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>奇想盒 · 启动器</title>
+  
   <link rel="stylesheet" href="css/style.css"/>
   <link rel="stylesheet" href="css/notifications.css"/>
-  <!-- 优雅字体（系统优先） -->
-  <style>
-    @font-face { font-family: "Harmony"; src: local("SF Pro Display"), local("PingFang SC"), local("Microsoft YaHei"); }
-  </style>
+  <link rel="stylesheet" href="css/window.css"/>
 </head>
-
 <body class="bg-cover">
   <!-- 背景 -->
   <div class="bg-overlay"></div>
 
-  <!-- 左上角品牌区 -->
+  <!-- 右上角：透明最小化/关闭 -->
+  <div class="window-controls">
+    <button id="win-min" class="win-btn" title="最小化">−</button>
+    <button id="win-close" class="win-btn" title="关闭">×</button>
+  </div>
+
+  <!-- 左上角logo区 -->
   <header class="brand">
     <img class="brand__logo" src="assets/appicon.png" alt="奇想盒 Logo"/>
     <div class="brand__meta">
@@ -31,8 +34,8 @@
       配置环境
     </button>
     <div class="cta__split"></div>
-    <button id="btn-advanced" class="btn btn-ghost" title="高级启动配置 / 打开项目文件夹" onclick="toggleDrawer()">
-      ▲
+    <button id="btn-advanced" class="btn btn-ghost" title="高级启动配置 / 打开项目文件夹">
+      ▼
     </button>
   </div>
 
@@ -60,7 +63,7 @@
     <div class="modal__backdrop" onclick="closeModal()"></div>
   </div>
 
-  <!-- Drawer：高级配置（内嵌你的原有三页签内容） -->
+  <!-- Drawer：高级配置 -->
   <aside id="drawer" class="drawer" aria-hidden="true">
     <div class="drawer__handle">
       <span>高级启动配置</span>
@@ -147,5 +150,6 @@
   </aside>
 
   <script src="js/main.js"></script>
+  <script src="js/window.js"></script>
 </body>
 </html>

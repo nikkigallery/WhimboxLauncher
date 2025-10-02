@@ -119,7 +119,7 @@ body{ padding-top: 40px; }
 
 /* Drawer（底部高级配置） */
 .drawer{
-  position:absolute; left:0; right:0; bottom:-70%; height:70%; background:#fff;
+  position:absolute; left:0; right:0; bottom:-100%; height:70%; background:#fff;
   border-top-left-radius:16px; border-top-right-radius:16px;
   box-shadow:0 -20px 40px rgba(0,0,0,.22); transition: bottom .25s ease;
   display:flex; flex-direction:column;
@@ -162,7 +162,7 @@ input[readonly], input[disabled], select[disabled]{background:#f9fafb; color:#6b
 /* Modal */
 .modal{position:absolute; inset:0; display:none}
 .modal[aria-hidden="false"]{display:block}
-.modal__backdrop{position:absolute; inset:0; background:rgba(0,0,0,.4)}
+.modal__backdrop{position:absolute; inset:0; background:transparent}
 .modal__dialog{
   position:absolute; right:28px; bottom:110px; width:min(640px, calc(100% - 56px));
   background:#fff; border-radius:16px; border:1px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,.25);

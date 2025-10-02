@@ -1,0 +1,66 @@
+/* 右上角窗口控制（仅符号，透明） */
+.window-controls{
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 18px;
+  z-index: 9999;
+  /* 若使用 easy_drag，避免按钮区域也被当作拖动区 */
+  -webkit-app-region: no-drag;
+}
+.win-btn{
+  width: 34px;
+  height: 28px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  user-select: none;
+}
+.win-btn:hover{
+  background: rgba(255,255,255,0.12);
+}
+.win-btn:active{
+  background: rgba(255,255,255,0.18);
+}
+
+/* 如果你启用了 easy_drag，希望某区域可拖动，可给容器加 drag；按钮区域必须 no-drag */
+.header-draggable{
+  -webkit-app-region: drag;  /* 可拖动 */
+}
+
+@font-face { 
+    font-family: "Harmony"; 
+    src: local("SF Pro Display"), local("PingFang SC"), local("Microsoft YaHei"); 
+}
+
+/* 确保抽屉默认隐藏 */
+#drawer {
+    transform: translateY(100%);
+    transition: transform 0.3s ease-out;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+#drawer:not([aria-hidden="true"]) {
+    transform: translateY(0);
+}
+
+/* 高级设置按钮样式 */
+#btn-advanced {
+    transition: transform 0.3s ease-out;
+}
+
+#btn-advanced.expanded {
+    transform: rotate(180deg);
+}
