@@ -298,7 +298,7 @@ class PythonLauncher:
                 return
             
             # 启动main.py
-            main_file = 'app\whimbox.py'
+            main_file = 'app\\whimbox.py'
             if os.path.exists(main_file):
                 if self.config.get('show_console', False):
                     subprocess.Popen([python_path, main_file], shell=True)
@@ -335,6 +335,7 @@ class PythonLauncher:
                 self.api.openProjectFolder,
                 self.api.reconfigure,
                 self.api.restartLauncher,
+                # 测试用API
                 self.api.ping,
                 self.api.echo,
                 self.api.demoLongTask,
@@ -365,20 +366,21 @@ class PythonLauncher:
                 logger.warning(f"检查更新失败: {e}")
         
         # 根据环境配置状态决定显示哪个界面
-        html_rel = 'static/launch.html' if self.config_manager.is_environment_configured() else 'static/index.html'
+        html_rel = 'static/launch.html' if self.config_manager.is_environment_configured() else 'static/index1.html'
         html_abs = self._abs_path(html_rel)
         file_url = 'file:///' + html_abs.replace('\\', '/')
         
         # 创建webview窗口
         try:
             self.window = webview.create_window(
-                title='Python项目启动器',
+                title='',
                 url=file_url,
                 # js_api=self.api, # 注释掉这行是因为打包时出现嵌套错误，通过添加 expose 方法解决
                 width=self.config.get('ui_settings', {}).get('window_width',1080),
                 height=self.config.get('ui_settings', {}).get('window_height', 720),
                 resizable=True,
-                min_size=(600, 400)
+                min_size=(600, 400),
+                frameless=True
             )
 
             webview.start(self._on_started,debug=True)
