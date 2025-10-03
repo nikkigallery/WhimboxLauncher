@@ -350,6 +350,39 @@ class PythonLauncher:
         try:
             # 先确保懒加载
             self._init_managers_if_needed()
+            # git实现自动更新
+            self.update_progress(20, "正在更新WhimboxAI源文件...")
+
+            # 读取配置
+            repo_url  = self.config.get("github_repo", "").strip()
+            app_dir   = self.config.get("app_dir", "./app")
+            repo_br   = self.config.get("repo_branch") or None
+            auto_upd  = self.config.get("whimbox_auto_update", False)
+
+            if not repo_url:
+                self.update_progress(100, "请先配置 github_repo")
+                return
+
+            target_dir = Path(app_dir).resolve()
+
+            # 2) 自动更新（clone 或 pull）
+            if auto_upd:
+                self.update_progress(15, "检查/更新 WhimboxAI 源文件 ...")
+                if (target_dir / ".git").is_file() or (target_dir / ".git").is_dir():
+                    # 已有仓库 -> 拉取强一致
+                    ok = self.git_manager.pull_repository(str(target_dir))
+                else:
+                    # 没有仓库 -> 克隆（ GitManager 会自动原链/镜像切换）
+                    ok = self.git_manager.clone_repository(repo_url, str(target_dir), branch=repo_br)
+
+                if not ok:
+                    self.update_progress(40, "源代码更新失败（原链与镜像均失败）")
+
+                # 记录最新 commit，方便 UI 显示/问题定位
+                commit = self.git_manager.get_commit_hash(str(target_dir)) or "unknown"
+                self.config_manager.update_config({"last_app_commit": commit})
+                logger.info(f"当前应用 commit: {commit}")
+
             self.update_progress(50, "正在启动主程序...")
             
             # 检查虚拟环境
