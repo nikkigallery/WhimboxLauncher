@@ -7,7 +7,7 @@ const DEFAULTS = {
   use_python_mirror: true,
   check_updates: false,
   auto_start: true,
-  show_console: false,
+  show_console: true,
   git_mirror_url: "https://github.com.cnpmjs.org",
   python_mirror_url: "https://mirrors.aliyun.com/pypi/simple/",
   pip_mirror_url: "https://mirrors.aliyun.com/pypi/simple/",
