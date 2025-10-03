@@ -2,9 +2,9 @@
 const LAUNCH_DEFAULTS = {
   github_repo: "https://github.com/nikkigallery/Whimbox",
   python_version: "3.12",
-  check_updates: false,     // ⬅ 默认关闭
-  show_console: false,
-  auto_minimize: false,
+  check_updates: false,
+  show_console: true,
+  auto_minimize: true,
   launcher_version: "v0.0.0"
 };
 

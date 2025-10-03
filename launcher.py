@@ -350,7 +350,7 @@ class PythonLauncher:
         try:
             # 先确保懒加载
             self._init_managers_if_needed()
-            self.update_progress(95, "正在启动主程序...")
+            self.update_progress(50, "正在启动主程序...")
             
             # 检查虚拟环境
             envs = self.virtual_env_manager.detect_virtual_envs()
@@ -367,7 +367,7 @@ class PythonLauncher:
             # 启动main.py
             main_file = 'app\\whimbox.py'
             if os.path.exists(main_file):
-                if self.config.get('show_console', False):
+                if self.config.get('show_console', True):
                     subprocess.Popen([python_path, main_file], shell=True)
                 else:
                     subprocess.Popen([python_path, main_file], 
