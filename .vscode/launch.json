@@ -26,7 +26,10 @@
         },
         "args": [".", "--remote-debugging-port=9222"],
         "outputCapture": "std",
-        "console": "integratedTerminal"
+        "console": "integratedTerminal",
+        "env": {
+          "NODE_ENV": "development"
+        }
       }
     ]
   }

@@ -2,19 +2,766 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
     />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <title>Hello from Electron renderer!</title>
+    <title>Whimbox Launcher</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+      }
+      
+      /* 自定义标题栏 */
+      .titlebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        -webkit-app-region: drag;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 15px;
+        z-index: 1000;
+      }
+      
+      .titlebar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .app-name {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      
+      .titlebar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        -webkit-app-region: no-drag;
+      }
+      
+      .titlebar-btn {
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      
+      .titlebar-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      
+      .titlebar-btn.close:hover {
+        background: #e81123;
+      }
+      
+      /* 主容器 */
+      .main-container {
+        position: absolute;
+        top: 40px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        padding: 20px;
+        gap: 20px;
+      }
+      
+      /* 左侧区域 */
+      .left-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      
+      /* 轮播图容器 */
+      .carousel-container {
+        width: 100%;
+        aspect-ratio: 4/3;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+      
+      .carousel-slides {
+        display: flex;
+        height: 100%;
+        transition: transform 0.5s ease-in-out;
+      }
+      
+      .carousel-slide {
+        min-width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+      }
+      
+      .carousel-slide::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%);
+      }
+      
+      .carousel-content {
+        position: relative;
+        z-index: 1;
+        color: white;
+        text-align: center;
+        padding: 20px;
+      }
+      
+      .carousel-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+      
+      .carousel-description {
+        font-size: 14px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+      
+      .carousel-indicators {
+        position: absolute;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+        z-index: 2;
+      }
+      
+      .indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      
+      .indicator.active {
+        background: white;
+        width: 24px;
+        border-radius: 4px;
+      }
+      
+      /* 公告栏 */
+      .announcement-container {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+      }
+      
+      .announcement-title {
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      
+      .announcement-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .announcement-item {
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      
+      .announcement-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      .announcement-item-title {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 5px;
+      }
+      
+      .announcement-item-date {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+      
+      /* 右侧区域 */
+      .right-section {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 15px;
+      }
+      
+      /* 状态信息卡片 */
+      .status-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+      
+      .status-title {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        opacity: 0.9;
+      }
+      
+      .status-content {
+        color: white;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      
+      .status-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      
+      .status-label {
+        opacity: 0.7;
+      }
+      
+      .status-value {
+        font-weight: 500;
+      }
+      
+      /* 进度条 */
+      .progress-container {
+        margin-top: 15px;
+        display: none;
+      }
+      
+      .progress-label {
+        color: white;
+        font-size: 12px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+      }
+      
+      .progress-bar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+        width: 0%;
+        transition: width 0.3s;
+        border-radius: 3px;
+      }
+      
+      /* 启动按钮 */
+      .launch-button-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .launch-btn {
+        width: 100%;
+        height: 60px;
+        border: none;
+        border-radius: 30px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .launch-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s;
+      }
+      
+      .launch-btn:hover::before {
+        left: 100%;
+      }
+      
+      .launch-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      }
+      
+      .launch-btn:active {
+        transform: translateY(0);
+      }
+      
+      .launch-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      
+      .launch-btn.installing {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      }
+      
+      .launch-btn.updating {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      }
+      
+      .launch-btn.ready {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      }
+      
+      /* 模态窗口 */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .modal-overlay.show {
+        display: flex;
+      }
+      
+      .modal {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        width: 500px;
+        max-height: 80vh;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: modalSlideIn 0.3s ease-out;
+      }
+      
+      @keyframes modalSlideIn {
+        from {
+          transform: translateY(-50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      
+      .modal-header {
+        padding: 20px 25px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+      }
+      
+      .modal-close {
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 15px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        color: #666;
+      }
+      
+      .modal-close:hover {
+        background: rgba(0, 0, 0, 0.1);
+      }
+      
+      .modal-body {
+        padding: 25px;
+        max-height: calc(80vh - 140px);
+        overflow-y: auto;
+      }
+      
+      .form-group {
+        margin-bottom: 20px;
+      }
+      
+      .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+      }
+      
+      .form-input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        font-size: 14px;
+        background: white;
+        transition: all 0.3s;
+      }
+      
+      .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+      
+      .form-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .form-checkbox input {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+      
+      .form-checkbox label {
+        font-size: 14px;
+        color: #333;
+        cursor: pointer;
+      }
+      
+      .form-select {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+      }
+      
+      .info-box {
+        padding: 12px 15px;
+        border-radius: 10px;
+        font-size: 13px;
+        margin-bottom: 15px;
+      }
+      
+      .info-box.info {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+      }
+      
+      .modal-footer {
+        padding: 15px 25px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+      
+      .btn-secondary {
+        background: rgba(0, 0, 0, 0.05);
+        color: #666;
+      }
+      
+      .btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.1);
+      }
+      
+      /* 滚动条样式 */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+      }
+    </style>
   </head>
   <body>
-    <h1>Hello from Electron renderer!</h1>
-    <p>👋</p>
+    <!-- 自定义标题栏 -->
+    <div class="titlebar">
+      <div class="titlebar-left">
+        <span class="app-name">Whimbox Launcher</span>
+      </div>
+      <div class="titlebar-right">
+        <button class="titlebar-btn login" id="login-btn" title="登录">登录</button>
+        <button class="titlebar-btn settings" id="settings-btn" title="设置">⚙</button>
+        <button class="titlebar-btn minimize" id="minimize-btn" title="最小化">─</button>
+        <button class="titlebar-btn close" id="close-btn" title="关闭">✕</button>
+      </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+      <!-- 左侧区域 -->
+      <div class="left-section">
+        <!-- 轮播图 -->
+        <div class="carousel-container">
+          <div class="carousel-slides" id="carousel-slides">
+            <div class="carousel-slide" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+              <div class="carousel-content">
+                <div class="carousel-title">欢迎使用 Whimbox Launcher</div>
+                <div class="carousel-description">一键启动您的应用</div>
+              </div>
+            </div>
+            <div class="carousel-slide" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+              <div class="carousel-content">
+                <div class="carousel-title">自动更新</div>
+                <div class="carousel-description">始终保持最新版本</div>
+              </div>
+            </div>
+            <div class="carousel-slide" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+              <div class="carousel-content">
+                <div class="carousel-title">简单易用</div>
+                <div class="carousel-description">无需配置，开箱即用</div>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-indicators" id="carousel-indicators">
+            <span class="indicator active" data-index="0"></span>
+            <span class="indicator" data-index="1"></span>
+            <span class="indicator" data-index="2"></span>
+          </div>
+        </div>
+
+        <!-- 公告栏 -->
+        <div class="announcement-container">
+          <div class="announcement-title">📢 最新公告</div>
+          <div class="announcement-list" id="announcement-list">
+            <div class="announcement-item">
+              <div class="announcement-item-title">欢迎使用 Whimbox Launcher</div>
+              <div class="announcement-item-date">2025/10/03</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧区域 -->
+      <div class="right-section">
+        <!-- 状态信息 -->
+        <div class="status-card">
+          <div class="status-title">系统状态</div>
+          <div class="status-content">
+            <div class="status-item">
+              <span class="status-label">Python 环境</span>
+              <span class="status-value" id="python-status">检测中...</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">应用版本</span>
+              <span class="status-value" id="app-version-display">未安装</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">更新状态</span>
+              <span class="status-value" id="update-status">检查中...</span>
+            </div>
+          </div>
+          
+          <!-- 进度条 -->
+          <div class="progress-container" id="progress-container">
+            <div class="progress-label">
+              <span id="progress-label-text">下载中...</span>
+              <span id="progress-percent">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 启动按钮 -->
+        <div class="launch-button-container">
+          <button class="launch-btn installing" id="launch-btn">安装环境</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 设置模态窗口 -->
+    <div class="modal-overlay" id="settings-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">设置</h3>
+          <button class="modal-close" id="settings-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">GitHub 仓库地址</label>
+            <input type="url" class="form-input" id="github-repo" placeholder="例如: https://github.com/username/repo">
+          </div>
+          
+          <div class="form-group">
+            <div class="form-checkbox">
+              <input type="checkbox" id="use-custom-url">
+              <label for="use-custom-url">使用自定义下载地址</label>
+            </div>
+          </div>
+          
+          <div class="form-group" id="custom-url-group" style="display: none;">
+            <label class="form-label">自定义下载地址</label>
+            <input type="url" class="form-input" id="custom-url" placeholder="直接输入 .whl 文件的下载地址">
+          </div>
+          
+          <div class="info-box info">
+            <strong>Python 环境：</strong>应用使用内置的 Python 3.12.8，无需额外安装。
+          </div>
+          
+          <div class="form-group">
+            <div class="form-checkbox">
+              <input type="checkbox" id="auto-update">
+              <label for="auto-update">自动检查更新</label>
+            </div>
+          </div>
+          
+          <div class="form-group" id="update-frequency-group">
+            <label class="form-label">检查更新频率</label>
+            <select class="form-select" id="update-frequency">
+              <option value="startup">每次启动时</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="settings-cancel">取消</button>
+          <button class="btn btn-primary" id="settings-save">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 登录模态窗口 -->
+    <div class="modal-overlay" id="login-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">登录</h3>
+          <button class="modal-close" id="login-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">用户名</label>
+            <input type="text" class="form-input" id="username" placeholder="请输入用户名">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">密码</label>
+            <input type="password" class="form-input" id="password" placeholder="请输入密码">
+          </div>
+          
+          <div class="form-group">
+            <div class="form-checkbox">
+              <input type="checkbox" id="remember-me">
+              <label for="remember-me">记住我</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="login-cancel">取消</button>
+          <button class="btn btn-primary" id="login-submit">登录</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./renderer.js"></script>
   </body>
 </html>
