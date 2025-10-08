@@ -39,68 +39,55 @@ app.whenReady().then(() => {
   createWindow();
 
   // 设置下载进度事件监听
-  downloader.on('progress', (progress) => {
-    if (mainWindow) {
+  if (mainWindow){
+    downloader.on('progress', (progress) => {
       mainWindow.webContents.send('download-progress', progress.progress);
-    }
-  });
-  
-  // 设置安装进度事件监听
-  pythonManager.on('install-progress', (data) => {
-    if (mainWindow) {
+    });
+    
+    // 设置安装进度事件监听
+    pythonManager.on('install-progress', (data) => {
       mainWindow.webContents.send('install-progress', data.output);
-    }
-  });
-  
-  // 设置 Python 环境设置事件监听
-  pythonManager.on('setup-start', (data) => {
-    if (mainWindow) {
+    });
+    
+    // 设置 Python 环境设置事件监听
+    pythonManager.on('setup-start', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'setup-start', message: data.message });
-    }
-  });
-  
-  pythonManager.on('extract-progress', (data) => {
-    if (mainWindow) {
+    });
+    
+    pythonManager.on('extract-progress', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'extract-progress', message: data.message });
-    }
-  });
-  
-  pythonManager.on('extract-complete', (data) => {
-    if (mainWindow) {
+    });
+    
+    pythonManager.on('extract-complete', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'extract-complete', message: data.message });
-    }
-  });
+    });
 
-  pythonManager.on('setup-pip', (data) => {
-    if (mainWindow) {
+    pythonManager.on('setup-pip', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'setup-pip', message: data.message });
-    }
-  });
+    });
 
-  pythonManager.on('pip-ready', (data) => {
-    if (mainWindow) {
+    pythonManager.on('pip-ready', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'pip-ready', message: data.message });
-    }
-  });
+    });
 
-  pythonManager.on('setup-complete', (data) => {
-    if (mainWindow) {
+    pythonManager.on('setup-complete', (data) => {
       mainWindow.webContents.send('python-setup', { stage: 'setup-complete', message: data.message });
-    }
-  });
+    });
 
-  // macOS应用激活时重新创建窗口
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+    appManager.on('launch-app-end', (data) => {
+      mainWindow.webContents.send('launch-app-end', {message: data.message});
+    });
+
+    appManager.on('launch-app-need-api-key', (data) => {
+      mainWindow.webContents.send('launch-app-need-api-key', {message: data.message});
+    });
+  }
   
   // 设置IPC处理程序
   setupIpcHandlers();
 });
 
-// 所有窗口关闭时退出应用（macOS除外）
+// 所有窗口关闭时退出应用
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -153,9 +140,9 @@ function setupIpcHandlers() {
     }
   });
   
-  ipcMain.handle('download-and-install', async () => {
+  ipcMain.handle('download-and-install', async (_, url, md5) => {
     try {
-      return await appManager.downloadAndInstall();
+      return await appManager.downloadAndInstall(url, md5);
     } catch (error) {
       throw new Error(`下载并安装失败: ${error.message}`);
     }

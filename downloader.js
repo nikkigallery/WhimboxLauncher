@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { app } = require('electron');
 const { EventEmitter } = require('events');
@@ -9,7 +10,7 @@ class Downloader extends EventEmitter {
     super();
     // 获取程序安装目录
     const appDir = app.isPackaged 
-      ? path.dirname(process.execPath) // 生产环境：C:\Program Files\奇想盒启动器
+      ? path.dirname(process.execPath) // 生产环境：启动器根目录
       : app.getAppPath(); // 开发环境：项目根目录
     
     // 创建下载目录
@@ -25,9 +26,17 @@ class Downloader extends EventEmitter {
    * @param {string} fileName - 文件名
    * @returns {Promise<string>} 下载完成的文件路径
    */
-  async downloadFile(url, fileName) {
+  async downloadFile(url, fileName, targetMd5=null) {
     const filePath = path.join(this.downloadDir, fileName);
     
+    if (targetMd5) {
+      const fileMd5 = crypto.createHash('md5').update(fs.readFileSync(filePath)).digest('hex');
+      if (fileMd5 === targetMd5) {
+        console.log('file already exists and md5 matches, skip download');
+        return filePath;
+      }
+    }
+
     // 检查文件是否已存在，如果存在则删除
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -109,24 +118,25 @@ class Downloader extends EventEmitter {
   }
 
   /**
-   * 从GitHub或自定义URL下载wheel包
+   * 从URL下载wheel包
    * @param {Object} options - 下载选项
    * @param {string} options.url - 下载URL
    * @param {string} options.fileName - 文件名
    * @returns {Promise<string>} 下载完成的文件路径
    */
   async downloadWheelPackage(options) {
-    const { url, fileName } = options;
+    const { url, fileName, md5 } = options;
     
     try {
       // 发出开始下载事件
       this.emit('start', {
         fileName,
-        url
+        url,
+        md5,
       });
       
       // 下载文件
-      const filePath = await this.downloadFile(url, fileName);
+      const filePath = await this.downloadFile(url, fileName, md5);
       
       return filePath;
     } catch (error) {

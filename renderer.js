@@ -8,9 +8,10 @@ const api = window.electronAPI;
 
 // 应用状态
 let appState = {
+  isLogin: false,
   pythonReady: false,
   appInstalled: false,
-  updateAvailable: false,
+  autoUpdateAvailable: false,
   isProcessing: false
 };
 
@@ -68,9 +69,9 @@ elements.launchBtn.addEventListener('click', async () => {
     if (!appState.pythonReady) {
       // 安装环境
       await setupEnvironment();
-    } else if (appState.updateAvailable) {
+    } else if (appState.autoUpdateAvailable) {
       // 自动更新
-      await performUpdate();
+      await autoUpdate();
     } else if (appState.appInstalled) {
       // 启动应用
       await launchApplication();
@@ -145,15 +146,6 @@ function compareVersions(remoteVersion, localVersion) {
  * @returns {Promise<object>} 更新检测结果
  */
 async function checkAppUpdate() {
-  // 检查是否已登录
-  if (!apiClient.getUserManager().isLoggedIn()) {
-    return {
-      needsLogin: true,
-      hasUpdate: false,
-      message: '请先登录'
-    };
-  }
-
   try {
     // 调用 API 获取远程版本信息
     const remoteVersion = await apiClient.checkWhimboxUpdate();
@@ -171,6 +163,7 @@ async function checkAppUpdate() {
       localVersion,
       remoteVersion: remoteVersion.version,
       downloadUrl: remoteVersion.url,
+      md5: remoteVersion.md5,
       message: hasUpdate ? '发现新版本' : '已是最新版本'
     };
   } catch (error) {
@@ -225,15 +218,20 @@ async function setupEnvironment() {
 }
 
 // 执行更新
-async function performUpdate() {
+async function autoUpdate() {
   try {
     updateButtonState('updating', '更新中...');
     showProgress('正在下载更新...', 0);
     
-    await api.downloadAndInstall();
+    const updateResult = await checkAppUpdate();
+    if (updateResult.hasUpdate) {
+      const url = updateResult.downloadUrl;
+      const md5 = updateResult.md5;
+      await api.downloadAndInstall(url, md5);
+    }
     
     appState.appInstalled = true;
-    appState.updateAvailable = false;
+    appState.autoUpdateAvailable = false;
     
     // 获取应用状态
     const appStatus = await api.getAppStatus();
@@ -246,6 +244,8 @@ async function performUpdate() {
     elements.updateStatus.textContent = '已是最新';
   } catch (error) {
     hideProgress();
+    updateButtonState('updating', '自动更新');
+    elements.updateStatus.textContent = '更新失败';
     throw error;
   }
 }
@@ -254,15 +254,10 @@ async function performUpdate() {
 async function launchApplication() {
   try {
     updateButtonState('ready', '启动中...');
-    
-    // TODO: 实现启动逻辑
-    // await api.launchApp();
-    
-    console.log('启动应用（功能待实现）');
-    alert('启动功能待实现');
-    
-    updateButtonState('ready', '一键启动');
+    await api.launchApp();
+    updateButtonState('ready', '运行中...');
   } catch (error) {
+    updateButtonState('ready', '一键启动');
     throw error;
   }
 }
@@ -305,8 +300,14 @@ api.onDownloadProgress((progress) => {
 });
 
 // 安装进度
+let installProgress = 0
 api.onInstallProgress((message) => {
   console.log('安装进度:', message);
+  showProgress("安装中...", installProgress);
+  installProgress += 5;
+  if (installProgress > 100) {
+    installProgress = 0;
+  }
 });
 
 // Python环境设置
@@ -328,6 +329,18 @@ api.onPythonSetup((data) => {
   }
 });
 
+// 应用运行结束
+api.onLaunchAppEnd((data) => {
+  console.log('应用运行结束:', data.message);
+  updateButtonState('ready', '一键启动');
+});
+
+// 应用运行需要APIKEY
+api.onLaunchAppNeedApiKey((data) => {
+  console.log('应用运行需要APIKEY:', data.message);
+  alert('请先设置大模型api');
+  openSettingsModal();
+});
 // ==================== 初始化 ====================
 
 async function initialize() {
@@ -341,7 +354,7 @@ async function initialize() {
   await loadSettings(api);
   
   // 检查并更新用户登录状态
-  updateUserUI();
+  appState.isLogin = updateUserUI();
   
   // 检查Python环境
   try {
@@ -381,36 +394,42 @@ async function initialize() {
     elements.appVersionDisplay.textContent = '检测失败';
   }
 
-  try {
-    elements.updateStatus.textContent = '检测中...';
-    const updateResult = await checkAppUpdate();
-    
-    if (updateResult.needsLogin) {
-      appState.updateAvailable = false;
-      elements.updateStatus.textContent = '未登录';
-      console.log('更新检测需要登录:', updateResult.message);
-    } else if (updateResult.hasUpdate) {
-      appState.updateAvailable = true;
-      elements.updateStatus.textContent = '有新版本';
-      console.log('发现新版本:', {
-        local: updateResult.localVersion,
-        remote: updateResult.remoteVersion,
-        downloadUrl: updateResult.downloadUrl
-      });
-    } else {
-      appState.updateAvailable = false;
-      elements.updateStatus.textContent = '已是最新';
-      console.log('已是最新版本:', updateResult.localVersion);
+  if (appState.isLogin) {
+    try {
+      elements.updateStatus.textContent = '检测中...';
+      const updateResult = await checkAppUpdate();
+      
+      if (updateResult.needsLogin) {
+        appState.autoUpdateAvailable = false;
+        elements.updateStatus.textContent = '请重新登录';
+        console.log('更新检测需要登录:', updateResult.message);
+      } else if (updateResult.hasUpdate) {
+        appState.autoUpdateAvailable = true;
+        elements.updateStatus.textContent = '有新版本';
+        console.log('发现新版本:', {
+          local: updateResult.localVersion,
+          remote: updateResult.remoteVersion,
+          downloadUrl: updateResult.downloadUrl
+        });
+      } else {
+        appState.autoUpdateAvailable = false;
+        elements.updateStatus.textContent = '已是最新';
+        console.log('已是最新版本:', updateResult.localVersion);
+      }
+    } catch (error) {
+      console.error('更新检测失败:', error);
+      appState.autoUpdateAvailable = false;
+      elements.updateStatus.textContent = '检测失败';
     }
-  } catch (error) {
-    console.error('更新检测失败:', error);
-    appState.updateAvailable = false;
-    elements.updateStatus.textContent = '检测失败';
+  } else{
+    appState.autoUpdateAvailable = false;
+    elements.updateStatus.textContent = '未登录';
   }
+  
 
   if (!appState.pythonReady) {
     updateButtonState('installing', '安装环境');
-  } else if (appState.updateAvailable) {
+  } else if (appState.autoUpdateAvailable) {
     updateButtonState('updating', '自动更新');
   } else if (appState.appInstalled) {
     updateButtonState('ready', '一键启动');

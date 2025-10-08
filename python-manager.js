@@ -20,6 +20,7 @@ class PythonManager extends EventEmitter {
     
     this.embeddedPythonDir = path.join(appDir, 'python-embedded');
     this.embeddedPythonPath = path.join(this.embeddedPythonDir, 'python.exe');
+    this.embeddedPythonScriptsDir = path.join(this.embeddedPythonDir, 'Scripts');
   }
 
   /**
@@ -276,18 +277,24 @@ class PythonManager extends EventEmitter {
       
       // 检测 Python 环境
       const pythonEnv = await this.detectPythonEnvironment();
-      
+      if (!pythonEnv.installed) {
+        throw new Error('Python环境未安装');
+      }
+
       // 发出开始安装事件
       this.emit('install-start', {
         wheelPath,
         pythonVersion: pythonEnv.version
       });
       
+      // 为embeded python安装setuptools
+      await this.runCommand(pythonEnv.command, ['-m', 'pip', 'install', '-i', 'https://mirrors.aliyun.com/pypi/simple/', 'setuptools'], true);
+
       // 使用 pip 安装 wheel 包
       const result = await this.runCommand(
         pythonEnv.command,
-        ['-m', 'pip', 'install', '--force-reinstall', wheelPath],
-        true
+        ['-m', 'pip', 'install', '-i', 'https://mirrors.aliyun.com/pypi/simple/', wheelPath],
+        true, 10 * 60 * 1000 // 超时10分钟
       );
       
       // 发出安装完成事件

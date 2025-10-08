@@ -15,9 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
   
   // 更新和安装
-  checkForUpdates: () => ipcRenderer.invoke('check-updates'),
   shouldCheckForUpdates: () => ipcRenderer.invoke('should-check-updates'),
-  downloadAndInstall: () => ipcRenderer.invoke('download-and-install'),
+  downloadAndInstall: (url, md5) => ipcRenderer.invoke('download-and-install', url, md5),
   
   // 应用状态和控制
   getAppStatus: () => ipcRenderer.invoke('get-app-status'),
@@ -33,5 +32,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onPythonSetup: (callback) => {
     ipcRenderer.on('python-setup', (_, data) => callback(data));
+  },
+  onLaunchAppEnd: (callback) => {
+    ipcRenderer.on('launch-app-end', (_, data) => callback(data));
+  },
+  onLaunchAppNeedApiKey: (callback) => {
+    ipcRenderer.on('launch-app-need-api-key', (_, data) => callback(data));
   }
 });

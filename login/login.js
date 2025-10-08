@@ -93,8 +93,6 @@ async function handleEmailLogin() {
     window.dispatchEvent(new CustomEvent('user-login-success', { 
       detail: userData 
     }));
-    
-    alert(`欢迎回来，${userData.username}！`);
   } catch (error) {
     console.error('登录失败:', error);
     alert('登录失败: ' + error.message);
@@ -151,6 +149,8 @@ export function updateUserUI() {
     userElements.userMenuAvatar.alt = user.username;
     userElements.userMenuName.textContent = user.username;
     userElements.userMenuEmail.textContent = user.email;
+
+    return true;
   } else {
     // 显示登录按钮，隐藏用户头像
     userElements.loginBtn.style.display = '';
@@ -158,6 +158,7 @@ export function updateUserUI() {
     
     // 隐藏用户菜单
     userElements.userMenu.style.display = 'none';
+    return false;
   }
 }
 

@@ -5,9 +5,11 @@ const { app } = require('electron');
 const configManager = require('./config');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
+const { EventEmitter } = require('events');
 
-class AppManager {
+class AppManager extends EventEmitter {
   constructor() {
+    super();
     // 获取程序安装目录
     // 开发环境：使用项目根目录
     // 生产环境：使用可执行文件所在目录
@@ -74,34 +76,23 @@ class AppManager {
     return this.appStatus;
   }
 
-
-
   /**
    * 下载并安装
-   * @param {Object} options - 下载选项
+   * @param {string} url - 下载URL
+   * @param {string} md5 - 文件MD5
    * @returns {Promise<Object>} 安装结果
    */
-  async downloadAndInstall(options = {}) {
-    const config = configManager.getConfig();
-    let downloadUrl, fileName;
-    
+  async downloadAndInstall(url, md5) {
     try {
       // 确定下载URL和文件名
-      if (config.useCustomUrl && config.customUrl) {
-        downloadUrl = config.customUrl;
-        fileName = path.basename(new URL(config.customUrl).pathname);
-      } else if (config.githubRepo) {
-        const wheelPackage = await githubApi.findLatestWheelPackage(config.githubRepo);
-        downloadUrl = wheelPackage.downloadUrl;
-        fileName = wheelPackage.fileName;
-      } else {
-        throw new Error('未配置下载地址');
-      }
+      const downloadUrl = url;
+      const fileName = path.basename(new URL(url).pathname);
       
       // 下载wheel包
       const wheelPath = await downloader.downloadWheelPackage({
         url: downloadUrl,
-        fileName
+        fileName,
+        md5,
       });
       
       // 安装wheel包
@@ -110,21 +101,25 @@ class AppManager {
       // 提取包名和版本
       const packageInfo = this.extractPackageInfo(fileName);
       
+      // 初始化app
+      const entryPoint = packageInfo.name.replace(/-/g, '_')
+      const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, entryPoint + '.exe')
+      await pythonManager.runCommand(entryPointPath, ['init'], true)
+
       // 更新应用状态
       this.appStatus = {
         installed: true,
         version: packageInfo.version,
-        path: wheelPath,
         installedAt: Date.now(),
         packageName: packageInfo.name,
-        entryPoint: packageInfo.name.replace(/-/g, '_')
+        entryPoint: entryPoint
       };
       
       // 保存应用状态
       this.saveAppStatus();
-      
-      // 更新最后检查时间
-      configManager.updateConfig({ updateLastCheckTime: true });
+
+      // 删除安装包
+      fs.unlinkSync(wheelPath);
       
       return {
         success: true,
@@ -187,14 +182,28 @@ class AppManager {
       
       // 启动Python应用
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
-      const process = spawn(pythonEnv.command, ['-m', this.appStatus.entryPoint], {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true // Windows 下隐藏控制台窗口
+      const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, this.appStatus.entryPoint + '.exe')
+      const process = spawn(entryPointPath, {
+        windowsHide: true,
+      });
+
+      process.stdout.on('data', (data) => {
+        const output = data.toString();
+        if (output.includes('api_key')) {
+          this.emit('launch-app-need-api-key', {message: output});
+        }
+      });
+
+      // 监听进程错误
+      process.on('error', (error) => {
+        console.error(`运行异常: ${error.message}`);
       });
       
-      // 分离进程，使其独立运行
-      process.unref();
+      // 监听进程退出
+      process.on('close', code => {
+        console.log(`进程退出, 代码: ${code}`);
+        this.emit('launch-app-end', {message: code.toString()});
+      });
       
       return {
         success: true

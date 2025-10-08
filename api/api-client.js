@@ -5,7 +5,7 @@
  */
 const API_CONFIG = {
   baseURL: 'https://www.nikkigallery.vip/api/v1',
-  timeout: 10000
+  timeout: 5000
 };
 
 /**
@@ -62,17 +62,7 @@ class UserManager {
       email: userData.email,
       username: userData.username,
       avatar: userData.avatar,
-      signature: userData.signature,
       uid: userData.uid,
-      is_vip: userData.is_vip,
-      level: userData.level,
-      is_poster: userData.is_poster,
-      is_tester: userData.is_tester,
-      is_organizer: userData.is_organizer,
-      is_staff: userData.is_staff,
-      bind_wx: userData.bind_wx,
-      xhsid: userData.xhsid,
-      qq: userData.qq
     };
     this.accessToken = userData.access_token;
     this.refreshToken = userData.refresh_token;
@@ -401,6 +391,7 @@ class APIClient {
       const remoteVersion = {
         version: response.version,
         url: response.url,
+        md5: response.md5,
         fetchedAt: Date.now()
       };
       localStorage.setItem('whimbox_remote_version', JSON.stringify(remoteVersion));
