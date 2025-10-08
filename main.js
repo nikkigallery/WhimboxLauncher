@@ -1,7 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const configManager = require('./config');
-const githubApi = require('./github-api');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
@@ -151,15 +150,6 @@ function setupIpcHandlers() {
       return await pythonManager.setupEmbeddedPython();
     } catch (error) {
       throw new Error(`安装Python环境失败: ${error.message}`);
-    }
-  });
-  
-  // 更新和安装
-  ipcMain.handle('check-updates', async () => {
-    try {
-      return await appManager.checkForUpdates();
-    } catch (error) {
-      throw new Error(`检查更新失败: ${error.message}`);
     }
   });
   

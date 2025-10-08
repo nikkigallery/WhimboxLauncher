@@ -1,3 +1,8 @@
+// ==================== 导入模块 ====================
+import { initLoginModule, updateUserUI } from './login/login.js';
+import { openSettingsModal, initSettingsModule, loadSettings } from './settings/settings.js';
+import { apiClient } from './api/api-client.js';
+
 // 与主进程通信的API
 const api = window.electronAPI;
 
@@ -12,14 +17,9 @@ let appState = {
 // DOM元素
 const elements = {
   // 标题栏按钮
-  loginBtn: document.getElementById('login-btn'),
   settingsBtn: document.getElementById('settings-btn'),
   minimizeBtn: document.getElementById('minimize-btn'),
   closeBtn: document.getElementById('close-btn'),
-  
-  // 轮播图
-  carouselSlides: document.getElementById('carousel-slides'),
-  carouselIndicators: document.querySelectorAll('.indicator'),
   
   // 公告
   announcementList: document.getElementById('announcement-list'),
@@ -36,41 +36,14 @@ const elements = {
   progressFill: document.getElementById('progress-fill'),
   
   // 启动按钮
-  launchBtn: document.getElementById('launch-btn'),
-  
-  // 设置模态窗口
-  settingsModal: document.getElementById('settings-modal'),
-  settingsClose: document.getElementById('settings-close'),
-  settingsCancel: document.getElementById('settings-cancel'),
-  settingsSave: document.getElementById('settings-save'),
-  githubRepo: document.getElementById('github-repo'),
-  useCustomUrl: document.getElementById('use-custom-url'),
-  customUrlGroup: document.getElementById('custom-url-group'),
-  customUrl: document.getElementById('custom-url'),
-  autoUpdate: document.getElementById('auto-update'),
-  updateFrequencyGroup: document.getElementById('update-frequency-group'),
-  updateFrequency: document.getElementById('update-frequency'),
-  
-  // 登录模态窗口
-  loginModal: document.getElementById('login-modal'),
-  loginClose: document.getElementById('login-close'),
-  loginCancel: document.getElementById('login-cancel'),
-  loginSubmit: document.getElementById('login-submit'),
-  username: document.getElementById('username'),
-  password: document.getElementById('password'),
-  rememberMe: document.getElementById('remember-me')
+  launchBtn: document.getElementById('launch-btn')
 };
 
 // ==================== 标题栏功能 ====================
 
-// 登录按钮
-elements.loginBtn.addEventListener('click', () => {
-  elements.loginModal.classList.add('show');
-});
-
 // 设置按钮
 elements.settingsBtn.addEventListener('click', () => {
-  elements.settingsModal.classList.add('show');
+  openSettingsModal();
 });
 
 // 最小化按钮
@@ -81,117 +54,6 @@ elements.minimizeBtn.addEventListener('click', () => {
 // 关闭按钮
 elements.closeBtn.addEventListener('click', () => {
   api.closeWindow();
-});
-
-// ==================== 轮播图功能 ====================
-
-let currentSlide = 0;
-const totalSlides = 3;
-
-function updateCarousel() {
-  const offset = -currentSlide * 100;
-  elements.carouselSlides.style.transform = `translateX(${offset}%)`;
-  
-  elements.carouselIndicators.forEach((indicator, index) => {
-    if (index === currentSlide) {
-      indicator.classList.add('active');
-    } else {
-      indicator.classList.remove('active');
-    }
-  });
-}
-
-// 自动轮播
-setInterval(() => {
-  currentSlide = (currentSlide + 1) % totalSlides;
-  updateCarousel();
-}, 5000);
-
-// 指示器点击
-elements.carouselIndicators.forEach((indicator, index) => {
-  indicator.addEventListener('click', () => {
-    currentSlide = index;
-    updateCarousel();
-  });
-});
-
-// ==================== 设置模态窗口 ====================
-
-// 关闭设置窗口
-function closeSettingsModal() {
-  elements.settingsModal.classList.remove('show');
-}
-
-elements.settingsClose.addEventListener('click', closeSettingsModal);
-elements.settingsCancel.addEventListener('click', closeSettingsModal);
-
-// 点击遮罩层关闭
-elements.settingsModal.addEventListener('click', (e) => {
-  if (e.target === elements.settingsModal) {
-    closeSettingsModal();
-  }
-});
-
-// 自定义URL切换
-elements.useCustomUrl.addEventListener('change', function() {
-  elements.customUrlGroup.style.display = this.checked ? 'block' : 'none';
-});
-
-// 自动更新切换
-elements.autoUpdate.addEventListener('change', function() {
-  elements.updateFrequencyGroup.style.display = this.checked ? 'block' : 'none';
-});
-
-// 保存设置
-elements.settingsSave.addEventListener('click', async () => {
-  try {
-    const config = {
-      githubRepo: elements.githubRepo.value,
-      customUrl: elements.customUrl.value,
-      useCustomUrl: elements.useCustomUrl.checked,
-      autoUpdate: elements.autoUpdate.checked,
-      checkFrequency: elements.updateFrequency.value
-    };
-    
-    await api.saveConfig(config);
-    closeSettingsModal();
-    
-    // 重新检查更新
-    checkForUpdates();
-  } catch (error) {
-    console.error('保存设置失败:', error);
-    alert('保存设置失败: ' + error.message);
-  }
-});
-
-// ==================== 登录模态窗口 ====================
-
-// 关闭登录窗口
-function closeLoginModal() {
-  elements.loginModal.classList.remove('show');
-}
-
-elements.loginClose.addEventListener('click', closeLoginModal);
-elements.loginCancel.addEventListener('click', closeLoginModal);
-
-// 点击遮罩层关闭
-elements.loginModal.addEventListener('click', (e) => {
-  if (e.target === elements.loginModal) {
-    closeLoginModal();
-  }
-});
-
-// 登录提交（功能待实现）
-elements.loginSubmit.addEventListener('click', async () => {
-  const username = elements.username.value;
-  const password = elements.password.value;
-  const rememberMe = elements.rememberMe.checked;
-  
-  // TODO: 实现登录逻辑
-  console.log('登录信息:', { username, password, rememberMe });
-  
-  alert('登录功能待实现');
-  closeLoginModal();
 });
 
 // ==================== 启动按钮功能 ====================
@@ -221,6 +83,111 @@ elements.launchBtn.addEventListener('click', async () => {
     elements.launchBtn.disabled = false;
   }
 });
+
+// ==================== 工具函数 ====================
+
+/**
+ * 比较版本号
+ * @param {string} remoteVersion - 远端版本号
+ * @param {string} localVersion - 本地版本号
+ * @returns {boolean} 远端版本是否更新
+ */
+function compareVersions(remoteVersion, localVersion) {
+  // 如果本地没有版本信息，认为有更新
+  if (!localVersion) {
+    return true;
+  }
+
+  // 如果远端或本地版本格式无效，返回false
+  if (!remoteVersion || remoteVersion === 'unknown') {
+    return false;
+  }
+
+  try {
+    // 移除版本号中的 'v' 前缀（如果有）
+    const remote = remoteVersion.replace(/^v/, '');
+    const local = localVersion.replace(/^v/, '');
+
+    // 分割版本号
+    const remoteParts = remote.split('.').map(part => {
+      // 处理可能包含非数字字符的部分（如 1.0.0-beta）
+      const num = parseInt(part.split(/[-+]/)[0], 10);
+      return isNaN(num) ? 0 : num;
+    });
+    const localParts = local.split('.').map(part => {
+      const num = parseInt(part.split(/[-+]/)[0], 10);
+      return isNaN(num) ? 0 : num;
+    });
+
+    // 比较每个部分
+    const maxLength = Math.max(remoteParts.length, localParts.length);
+    for (let i = 0; i < maxLength; i++) {
+      const remotePart = remoteParts[i] || 0;
+      const localPart = localParts[i] || 0;
+
+      if (remotePart > localPart) {
+        return true;
+      } else if (remotePart < localPart) {
+        return false;
+      }
+    }
+
+    // 版本号相同
+    return false;
+  } catch (error) {
+    console.error('版本号比较失败:', error);
+    return false;
+  }
+}
+
+/**
+ * 检查应用更新
+ * @returns {Promise<object>} 更新检测结果
+ */
+async function checkAppUpdate() {
+  // 检查是否已登录
+  if (!apiClient.getUserManager().isLoggedIn()) {
+    return {
+      needsLogin: true,
+      hasUpdate: false,
+      message: '请先登录'
+    };
+  }
+
+  try {
+    // 调用 API 获取远程版本信息
+    const remoteVersion = await apiClient.checkWhimboxUpdate();
+    
+    // 获取本地版本信息
+    const appStatus = await api.getAppStatus();
+    const localVersion = appStatus.version;
+    
+    // 比较版本
+    const hasUpdate = compareVersions(remoteVersion.version, localVersion);
+    
+    return {
+      needsLogin: false,
+      hasUpdate,
+      localVersion,
+      remoteVersion: remoteVersion.version,
+      downloadUrl: remoteVersion.url,
+      message: hasUpdate ? '发现新版本' : '已是最新版本'
+    };
+  } catch (error) {
+    console.error('检查更新失败:', error);
+    
+    // 如果是认证错误
+    if (error.message && error.message.includes('登录')) {
+      return {
+        needsLogin: true,
+        hasUpdate: false,
+        message: '登录已过期，请重新登录'
+      };
+    }
+    
+    throw error;
+  }
+}
 
 // ==================== 核心功能函数 ====================
 
@@ -300,33 +267,13 @@ async function launchApplication() {
   }
 }
 
-// 检查更新
-async function checkForUpdates() {
-  try {
-    elements.updateStatus.textContent = '检查中...';
-    
-    const updateInfo = await api.checkForUpdates();
-    
-    if (updateInfo.available) {
-      appState.updateAvailable = true;
-      elements.updateStatus.textContent = '有新版本';
-      updateButtonState('updating', '自动更新');
-    } else {
-      appState.updateAvailable = false;
-      appState.appInstalled = true;
-      elements.updateStatus.textContent = '已是最新';
-      updateButtonState('ready', '一键启动');
-    }
-  } catch (error) {
-    console.error('检查更新失败:', error);
-    elements.updateStatus.textContent = '检查失败';
-  }
-}
-
 // ==================== UI 更新函数 ====================
 
 // 更新按钮状态
 function updateButtonState(state, text) {
+  if (state === 'error') {
+    elements.launchBtn.disabled = true;
+  }
   elements.launchBtn.className = 'launch-btn ' + state;
   elements.launchBtn.textContent = text;
 }
@@ -384,58 +331,91 @@ api.onPythonSetup((data) => {
 // ==================== 初始化 ====================
 
 async function initialize() {
+  console.log('初始化应用...');
+  
+  // 初始化模块
+  initLoginModule();
+  initSettingsModule(api);
+  
+  // 加载设置
+  await loadSettings(api);
+  
+  // 检查并更新用户登录状态
+  updateUserUI();
+  
+  // 检查Python环境
   try {
-    console.log('初始化应用...');
-    
-    // 加载配置
-    const config = await api.getConfig();
-    elements.githubRepo.value = config.githubRepo || '';
-    elements.customUrl.value = config.customUrl || '';
-    elements.useCustomUrl.checked = config.useCustomUrl || false;
-    elements.autoUpdate.checked = config.autoUpdate !== undefined ? config.autoUpdate : true;
-    elements.updateFrequency.value = config.checkFrequency || 'startup';
-    
-    // 更新UI状态
-    elements.customUrlGroup.style.display = config.useCustomUrl ? 'block' : 'none';
-    elements.updateFrequencyGroup.style.display = config.autoUpdate !== false ? 'block' : 'none';
-    
-    // 检查Python环境
     elements.pythonStatus.textContent = '检测中...';
-    try {
-      const pythonEnv = await api.detectPythonEnvironment();
-      
-      if (pythonEnv.installed) {
-        // 已安装
-        appState.pythonReady = true;
-        elements.pythonStatus.textContent = '就绪';
-        
-        // Python就绪后检查应用状态和更新
-        const appStatus = await api.getAppStatus();
-        if (appStatus.installed) {
-          appState.appInstalled = true;
-          elements.appVersionDisplay.textContent = appStatus.version || '已安装';
-        }
-        
-        // 检查更新
-        await checkForUpdates();
-      } else {
-        // 未安装
-        console.log('Python环境未安装:', pythonEnv.message);
-        appState.pythonReady = false;
-        elements.pythonStatus.textContent = '未安装';
-        elements.updateStatus.textContent = '等待安装';
-        updateButtonState('installing', '安装环境');
-      }
-    } catch (error) {
-      console.error('Python环境检测失败:', error);
+    const pythonEnv = await api.detectPythonEnvironment();
+    if (pythonEnv.installed) {
+      appState.pythonReady = true;
+      elements.pythonStatus.textContent = '就绪';
+      console.log('Python环境就绪');
+    }else{
       appState.pythonReady = false;
-      elements.pythonStatus.textContent = '检测失败';
-      elements.updateStatus.textContent = '等待安装';
-      updateButtonState('installing', '安装环境');
+      elements.pythonStatus.textContent = '未安装';
+      console.log('Python环境未安装');
     }
-    
   } catch (error) {
-    console.error('初始化失败:', error);
+    console.error('Python环境检测失败:', error);
+    appState.pythonReady = false;
+    elements.pythonStatus.textContent = '检测失败';
+  }
+      
+  // 检查app版本
+  try {
+    elements.appVersionDisplay.textContent = '检测中...';
+    const appStatus = await api.getAppStatus();
+    if (appStatus.installed) {
+      appState.appInstalled = true;
+      elements.appVersionDisplay.textContent = appStatus.version;
+      console.log('应用已安装，版本号：', appStatus.version);
+    } else {
+      appState.appInstalled = false;
+      elements.appVersionDisplay.textContent = '未安装';
+      console.log('应用未安装');
+    }
+  } catch (error) {
+    console.error('应用版本检测失败:', error);
+    appState.appInstalled = false;
+    elements.appVersionDisplay.textContent = '检测失败';
+  }
+
+  try {
+    elements.updateStatus.textContent = '检测中...';
+    const updateResult = await checkAppUpdate();
+    
+    if (updateResult.needsLogin) {
+      appState.updateAvailable = false;
+      elements.updateStatus.textContent = '未登录';
+      console.log('更新检测需要登录:', updateResult.message);
+    } else if (updateResult.hasUpdate) {
+      appState.updateAvailable = true;
+      elements.updateStatus.textContent = '有新版本';
+      console.log('发现新版本:', {
+        local: updateResult.localVersion,
+        remote: updateResult.remoteVersion,
+        downloadUrl: updateResult.downloadUrl
+      });
+    } else {
+      appState.updateAvailable = false;
+      elements.updateStatus.textContent = '已是最新';
+      console.log('已是最新版本:', updateResult.localVersion);
+    }
+  } catch (error) {
+    console.error('更新检测失败:', error);
+    appState.updateAvailable = false;
+    elements.updateStatus.textContent = '检测失败';
+  }
+
+  if (!appState.pythonReady) {
+    updateButtonState('installing', '安装环境');
+  } else if (appState.updateAvailable) {
+    updateButtonState('updating', '自动更新');
+  } else if (appState.appInstalled) {
+    updateButtonState('ready', '一键启动');
+  } else{
+    updateButtonState('error', '网络连接失败');
   }
 }
 

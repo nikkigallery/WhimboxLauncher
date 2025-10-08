@@ -3,7 +3,6 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { app } = require('electron');
 const configManager = require('./config');
-const githubApi = require('./github-api');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 
@@ -75,48 +74,7 @@ class AppManager {
     return this.appStatus;
   }
 
-  /**
-   * 检查更新
-   * @returns {Promise<Object>} 更新信息
-   */
-  async checkForUpdates() {
-    try {
-      const config = configManager.getConfig();
-      
-      // 如果使用自定义URL，返回简单信息
-      if (config.useCustomUrl && config.customUrl) {
-        // 从URL中提取文件名
-        const url = new URL(config.customUrl);
-        const fileName = path.basename(url.pathname);
-        
-        return {
-          available: true,
-          version: 'custom',
-          fileName,
-          downloadUrl: config.customUrl,
-          createdAt: Date.now()
-        };
-      }
-      
-      // 使用GitHub API获取最新版本
-      if (!config.githubRepo) {
-        throw new Error('未配置GitHub仓库地址');
-      }
-      
-      const wheelPackage = await githubApi.findLatestWheelPackage(config.githubRepo);
-      
-      // 检查是否有新版本
-      const isNewVersion = !this.appStatus.installed || 
-                          this.appStatus.version !== wheelPackage.version;
-      
-      return {
-        available: isNewVersion,
-        ...wheelPackage
-      };
-    } catch (error) {
-      throw new Error(`检查更新失败: ${error.message}`);
-    }
-  }
+
 
   /**
    * 下载并安装

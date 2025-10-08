@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://nikkigallery.vip; connect-src https://www.nikkigallery.vip https://nikkigallery.vip;"
     />
     <title>Whimbox Launcher</title>
     <style>
@@ -103,93 +103,13 @@
         flex: 1;
         display: flex;
         flex-direction: column;
+        justify-content: flex-end;
         gap: 15px;
-      }
-      
-      /* 轮播图容器 */
-      .carousel-container {
-        width: 100%;
-        aspect-ratio: 4/3;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
-        overflow: hidden;
-        position: relative;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-      }
-      
-      .carousel-slides {
-        display: flex;
-        height: 100%;
-        transition: transform 0.5s ease-in-out;
-      }
-      
-      .carousel-slide {
-        min-width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background-size: cover;
-        background-position: center;
-        position: relative;
-      }
-      
-      .carousel-slide::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%);
-      }
-      
-      .carousel-content {
-        position: relative;
-        z-index: 1;
-        color: white;
-        text-align: center;
-        padding: 20px;
-      }
-      
-      .carousel-title {
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 10px;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-      }
-      
-      .carousel-description {
-        font-size: 14px;
-        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-      }
-      
-      .carousel-indicators {
-        position: absolute;
-        bottom: 15px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 8px;
-        z-index: 2;
-      }
-      
-      .indicator {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        cursor: pointer;
-        transition: all 0.3s;
-      }
-      
-      .indicator.active {
-        background: white;
-        width: 24px;
-        border-radius: 4px;
       }
       
       /* 公告栏 */
       .announcement-container {
-        flex: 1;
+        height: 231px;
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(10px);
         border-radius: 15px;
@@ -375,6 +295,11 @@
       .launch-btn.ready {
         background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
       }
+
+      .launch-btn.error {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        cursor: not-allowed;
+      }
       
       /* 模态窗口 */
       .modal-overlay {
@@ -550,6 +475,16 @@
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
       }
+
+      .btn-success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+      }
+      
+      .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(56, 249, 215, 0.4);
+      }
       
       .btn-secondary {
         background: rgba(0, 0, 0, 0.05);
@@ -578,6 +513,118 @@
       ::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.5);
       }
+      
+      /* 用户菜单样式 */
+      .user-menu {
+        position: fixed;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        padding: 12px;
+        min-width: 220px;
+        z-index: 3000;
+        animation: menuSlideIn 0.2s ease-out;
+      }
+      
+      @keyframes menuSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .user-menu-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+      }
+      
+      .user-menu-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(102, 126, 234, 0.3);
+      }
+      
+      .user-menu-info {
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .user-menu-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .user-menu-email {
+        font-size: 12px;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .user-menu-divider {
+        height: 1px;
+        background: rgba(0, 0, 0, 0.1);
+        margin: 8px 0;
+      }
+      
+      .user-menu-item {
+        width: 100%;
+        padding: 10px 12px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .user-menu-item:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      
+      .user-menu-item:active {
+        background: rgba(0, 0, 0, 0.1);
+      }
+      
+      /* 用户头像按钮样式 */
+      .user-avatar-container {
+        -webkit-app-region: no-drag;
+      }
+      
+      .user-avatar-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      .user-avatar-btn:hover {
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: scale(1.05);
+      }
     </style>
   </head>
   <body>
@@ -587,7 +634,12 @@
         <span class="app-name">Whimbox Launcher</span>
       </div>
       <div class="titlebar-right">
+        <!-- 未登录时显示 -->
         <button class="titlebar-btn login" id="login-btn" title="登录">登录</button>
+        <!-- 已登录时显示 -->
+        <div class="user-avatar-container" id="user-avatar-container" style="display: none;">
+          <img class="user-avatar-btn" id="user-avatar-btn" src="" alt="用户头像" title="用户">
+        </div>
         <button class="titlebar-btn settings" id="settings-btn" title="设置">⚙</button>
         <button class="titlebar-btn minimize" id="minimize-btn" title="最小化">─</button>
         <button class="titlebar-btn close" id="close-btn" title="关闭">✕</button>
@@ -598,35 +650,6 @@
     <div class="main-container">
       <!-- 左侧区域 -->
       <div class="left-section">
-        <!-- 轮播图 -->
-        <div class="carousel-container">
-          <div class="carousel-slides" id="carousel-slides">
-            <div class="carousel-slide" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-              <div class="carousel-content">
-                <div class="carousel-title">欢迎使用 Whimbox Launcher</div>
-                <div class="carousel-description">一键启动您的应用</div>
-              </div>
-            </div>
-            <div class="carousel-slide" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-              <div class="carousel-content">
-                <div class="carousel-title">自动更新</div>
-                <div class="carousel-description">始终保持最新版本</div>
-              </div>
-            </div>
-            <div class="carousel-slide" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-              <div class="carousel-content">
-                <div class="carousel-title">简单易用</div>
-                <div class="carousel-description">无需配置，开箱即用</div>
-              </div>
-            </div>
-          </div>
-          <div class="carousel-indicators" id="carousel-indicators">
-            <span class="indicator active" data-index="0"></span>
-            <span class="indicator" data-index="1"></span>
-            <span class="indicator" data-index="2"></span>
-          </div>
-        </div>
-
         <!-- 公告栏 -->
         <div class="announcement-container">
           <div class="announcement-title">📢 最新公告</div>
@@ -646,7 +669,7 @@
           <div class="status-title">系统状态</div>
           <div class="status-content">
             <div class="status-item">
-              <span class="status-label">Python 环境</span>
+              <span class="status-label">运行环境</span>
               <span class="status-value" id="python-status">检测中...</span>
             </div>
             <div class="status-item">
@@ -739,29 +762,39 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label">用户名</label>
-            <input type="text" class="form-input" id="username" placeholder="请输入用户名">
+            <label class="form-label">照相馆注册邮箱</label>
+            <input type="email" class="form-input" id="email">
           </div>
-          
           <div class="form-group">
-            <label class="form-label">密码</label>
-            <input type="password" class="form-input" id="password" placeholder="请输入密码">
-          </div>
-          
-          <div class="form-group">
-            <div class="form-checkbox">
-              <input type="checkbox" id="remember-me">
-              <label for="remember-me">记住我</label>
-            </div>
+            <label class="form-label">照相馆登录密码</label>
+            <input type="password" class="form-input" id="password">
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" id="login-cancel">取消</button>
           <button class="btn btn-primary" id="login-submit">登录</button>
         </div>
+        <div class="modal-footer">
+          <button class="btn btn-success" id="login-wx">微信登录</button>
+        </div>
       </div>
     </div>
 
-    <script src="./renderer.js"></script>
+    <!-- 用户菜单 -->
+    <div class="user-menu" id="user-menu" style="display: none;">
+      <div class="user-menu-header">
+        <img class="user-menu-avatar" id="user-menu-avatar" src="" alt="用户头像">
+        <div class="user-menu-info">
+          <div class="user-menu-name" id="user-menu-name">用户名</div>
+          <div class="user-menu-email" id="user-menu-email">user@example.com</div>
+        </div>
+      </div>
+      <div class="user-menu-divider"></div>
+      <button class="user-menu-item" id="user-menu-logout">
+        <span>退出登录</span>
+      </button>
+    </div>
+
+    <script type="module" src="./renderer.js"></script>
   </body>
 </html>
