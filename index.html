@@ -23,7 +23,7 @@
         overflow: hidden;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         position: relative;
       }
       
@@ -96,6 +96,10 @@
         display: flex;
         padding: 20px;
         gap: 20px;
+        background-image: url('./assets/bg.webp');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
       }
       
       /* 左侧区域 */
@@ -110,8 +114,8 @@
       /* 公告栏 */
       .announcement-container {
         height: 231px;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+        background: #f5576c20;
+        backdrop-filter: blur(5px);
         border-radius: 15px;
         padding: 15px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -135,7 +139,7 @@
       
       .announcement-item {
         padding: 10px;
-        background: rgba(255, 255, 255, 0.05);
+        background: #f5576c10;
         border-radius: 8px;
         color: white;
         cursor: pointer;
@@ -143,7 +147,8 @@
       }
       
       .announcement-item:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: #f5576c20;
+        
       }
       
       .announcement-item-title {
@@ -168,8 +173,8 @@
       
       /* 状态信息卡片 */
       .status-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+        background: #f5576c20;
+        backdrop-filter: blur(5px);
         border-radius: 15px;
         padding: 20px;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -196,7 +201,7 @@
       }
       
       .status-label {
-        opacity: 0.7;
+        opacity: 1;
       }
       
       .status-value {
@@ -250,7 +255,7 @@
         transition: all 0.3s;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         color: white;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         position: relative;
         overflow: hidden;
       }
@@ -280,26 +285,10 @@
       }
       
       .launch-btn:disabled {
-        opacity: 0.6;
+        /* opacity: 0.6; */
         cursor: not-allowed;
       }
       
-      .launch-btn.installing {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      }
-      
-      .launch-btn.updating {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-      }
-      
-      .launch-btn.ready {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-      }
-
-      .launch-btn.error {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        cursor: not-allowed;
-      }
       
       /* 模态窗口 */
       .modal-overlay {
@@ -404,8 +393,8 @@
       
       .form-input:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: #f093fb;
+        box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.1);
       }
       
       .form-checkbox {
@@ -444,8 +433,8 @@
       }
       
       .info-box.info {
-        background: rgba(102, 126, 234, 0.1);
-        color: #667eea;
+        background: rgba(240, 147, 251, 0.1);
+        color: #f093fb;
       }
       
       .modal-footer {
@@ -467,13 +456,13 @@
       }
       
       .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         color: white;
       }
       
       .btn-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
       }
 
       .btn-success {
@@ -550,7 +539,7 @@
         height: 48px;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid rgba(102, 126, 234, 0.3);
+        border: 2px solid rgba(240, 147, 251, 0.3);
       }
       
       .user-menu-info {
@@ -656,8 +645,8 @@
           <div class="announcement-title">📢 最新公告</div>
           <div class="announcement-list" id="announcement-list">
             <div class="announcement-item">
-              <div class="announcement-item-title">欢迎使用 Whimbox Launcher</div>
-              <div class="announcement-item-date">2025/10/03</div>
+              <div class="announcement-item-title">欢迎使用奇想盒</div>
+              <div class="announcement-item-date">2025/10/10</div>
             </div>
           </div>
         </div>
