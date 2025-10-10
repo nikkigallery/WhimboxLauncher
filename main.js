@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const configManager = require('./config');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
@@ -77,10 +76,6 @@ app.whenReady().then(() => {
     appManager.on('launch-app-end', (data) => {
       mainWindow.webContents.send('launch-app-end', {message: data.message});
     });
-
-    appManager.on('launch-app-need-api-key', (data) => {
-      mainWindow.webContents.send('launch-app-need-api-key', {message: data.message});
-    });
   }
   
   // 设置IPC处理程序
@@ -109,19 +104,6 @@ function setupIpcHandlers() {
     }
   });
   
-  // 配置相关
-  ipcMain.handle('get-config', () => {
-    return configManager.getConfig();
-  });
-  
-  ipcMain.handle('save-config', (_, config) => {
-    return configManager.updateConfig(config);
-  });
-  
-  ipcMain.handle('should-check-updates', () => {
-    return configManager.shouldCheckForUpdates();
-  });
-  
   // Python环境
   ipcMain.handle('detect-python', async () => {
     try {
@@ -140,9 +122,25 @@ function setupIpcHandlers() {
     }
   });
   
-  ipcMain.handle('download-and-install', async (_, url, md5) => {
+  ipcMain.handle('check-manual-update-whl', async () => {
     try {
-      return await appManager.downloadAndInstall(url, md5);
+      return await appManager.checkManualUpdateWhl();
+    } catch (error) {
+      throw new Error(`检查手动更新包失败: ${error.message}`);
+    }
+  });
+
+  ipcMain.handle('install-whl', async (_, wheelPath) => {
+    try {
+      return await appManager.installWhl(wheelPath);
+    } catch (error) {
+      throw new Error(`安装更新包失败: ${error.message}`);
+    }
+  });
+
+  ipcMain.handle('download-and-install-whl', async (_, url, md5) => {
+    try {
+      return await appManager.downloadAndInstallWhl(url, md5);
     } catch (error) {
       throw new Error(`下载并安装失败: ${error.message}`);
     }

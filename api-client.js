@@ -263,8 +263,8 @@ class APIClient {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${refreshToken}`
           },
+          body: JSON.stringify({ refresh: refreshToken }),
           mode: 'cors'
         });
 
@@ -275,11 +275,11 @@ class APIClient {
         const data = await response.json();
         
         // 更新 access token
-        if (data.access_token) {
-          this.userManager.accessToken = data.access_token;
+        if (data.access) {
+          this.userManager.accessToken = data.access;
           // 如果返回了新的 refresh token，也更新
-          if (data.refresh_token) {
-            this.userManager.refreshToken = data.refresh_token;
+          if (data.refresh) {
+            this.userManager.refreshToken = data.refresh;
           }
           this.userManager.saveUserToStorage();
           return true;

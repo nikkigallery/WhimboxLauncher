@@ -6,17 +6,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
   
-  // 配置相关
-  getConfig: () => ipcRenderer.invoke('get-config'),
-  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
-  
   // Python环境
   detectPythonEnvironment: () => ipcRenderer.invoke('detect-python'),
   setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
   
   // 更新和安装
-  shouldCheckForUpdates: () => ipcRenderer.invoke('should-check-updates'),
-  downloadAndInstall: (url, md5) => ipcRenderer.invoke('download-and-install', url, md5),
+  checkManualUpdateWhl: () => ipcRenderer.invoke('check-manual-update-whl'),
+  installWhl: (wheelPath) => ipcRenderer.invoke('install-whl', wheelPath),
+  downloadAndInstallWhl: (url, md5) => ipcRenderer.invoke('download-and-install-whl', url, md5),
   
   // 应用状态和控制
   getAppStatus: () => ipcRenderer.invoke('get-app-status'),
@@ -36,7 +33,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLaunchAppEnd: (callback) => {
     ipcRenderer.on('launch-app-end', (_, data) => callback(data));
   },
-  onLaunchAppNeedApiKey: (callback) => {
-    ipcRenderer.on('launch-app-need-api-key', (_, data) => callback(data));
-  }
 });

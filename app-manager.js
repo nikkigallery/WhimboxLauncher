@@ -2,7 +2,6 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { app } = require('electron');
-const configManager = require('./config');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const { EventEmitter } = require('events');
@@ -77,12 +76,81 @@ class AppManager extends EventEmitter {
   }
 
   /**
+   * 检查downloads目录下是否有手动更新包
+   * @returns {Promise<Object>} 最新的更新包路径
+   */
+  async checkManualUpdateWhl() {
+    const currentVersion = this.appStatus.version;
+    const downloadDir = downloader.getDownloadDirectory();
+    const files = fs.readdirSync(downloadDir);
+    let maxVersionFile = null;
+    let maxVersion = currentVersion ? currentVersion : '0.0.0';
+    for (const file of files) {
+      if (file.endsWith('.whl')) {
+        const packageInfo = this.extractPackageInfo(file);
+        if (packageInfo.version > maxVersion) {
+          maxVersion = packageInfo.version;
+          maxVersionFile = file;
+        }
+      }
+    }
+    if (maxVersionFile) {
+      return path.join(downloadDir, maxVersionFile);
+    }
+    return null;
+  }
+
+  /**
+   * 安装更新包
+   * @returns {Promise<Object>} 安装结果
+   */
+  async installWhl(wheelPath) {
+    try {
+      if (wheelPath) {
+        // 安装wheel包
+        await pythonManager.installWheelPackage(wheelPath);
+        
+        // 提取包名和版本
+        const fileName = path.basename(wheelPath);
+        const packageInfo = this.extractPackageInfo(fileName);
+        
+        // 初始化app
+        const entryPoint = packageInfo.name.replace(/-/g, '_')
+        const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, entryPoint + '.exe')
+        await pythonManager.runCommand(entryPointPath, ['init'], true)
+
+        // 更新应用状态
+        this.appStatus = {
+          installed: true,
+          version: packageInfo.version,
+          installedAt: Date.now(),
+          packageName: packageInfo.name,
+          entryPoint: entryPoint
+        };
+        this.saveAppStatus();
+
+        // 删除安装包
+        fs.unlinkSync(wheelPath);
+        
+        return {
+          success: true,
+          packageInfo
+        };
+      } else {
+        throw new Error('没有找到更新包');
+      }
+    } catch (error) {
+      throw new Error(`安装更新包失败: ${error.message}`);
+    }
+  }
+
+  /**
    * 下载并安装
    * @param {string} url - 下载URL
    * @param {string} md5 - 文件MD5
    * @returns {Promise<Object>} 安装结果
    */
-  async downloadAndInstall(url, md5) {
+  async downloadAndInstallWhl(url, md5) {
     try {
       // 确定下载URL和文件名
       const downloadUrl = url;
@@ -96,35 +164,7 @@ class AppManager extends EventEmitter {
       });
       
       // 安装wheel包
-      const installResult = await pythonManager.installWheelPackage(wheelPath);
-      
-      // 提取包名和版本
-      const packageInfo = this.extractPackageInfo(fileName);
-      
-      // 初始化app
-      const entryPoint = packageInfo.name.replace(/-/g, '_')
-      const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, entryPoint + '.exe')
-      await pythonManager.runCommand(entryPointPath, ['init'], true)
-
-      // 更新应用状态
-      this.appStatus = {
-        installed: true,
-        version: packageInfo.version,
-        installedAt: Date.now(),
-        packageName: packageInfo.name,
-        entryPoint: entryPoint
-      };
-      
-      // 保存应用状态
-      this.saveAppStatus();
-
-      // 删除安装包
-      fs.unlinkSync(wheelPath);
-      
-      return {
-        success: true,
-        packageInfo
-      };
+      await this.installWhl(wheelPath);
     } catch (error) {
       throw new Error(`下载并安装失败: ${error.message}`);
     }
@@ -185,13 +225,6 @@ class AppManager extends EventEmitter {
       const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, this.appStatus.entryPoint + '.exe')
       const process = spawn(entryPointPath, {
         windowsHide: true,
-      });
-
-      process.stdout.on('data', (data) => {
-        const output = data.toString();
-        if (output.includes('api_key')) {
-          this.emit('launch-app-need-api-key', {message: output});
-        }
       });
 
       // 监听进程错误

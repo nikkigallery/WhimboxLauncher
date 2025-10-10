@@ -6,7 +6,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://nikkigallery.vip; connect-src https://www.nikkigallery.vip https://nikkigallery.vip;"
     />
-    <title>Whimbox Launcher</title>
+    <title>奇想盒启动器</title>
     <style>
       * {
         box-sizing: border-box;
@@ -633,7 +633,7 @@
     <!-- 自定义标题栏 -->
     <div class="titlebar">
       <div class="titlebar-left">
-        <span class="app-name">Whimbox Launcher</span>
+        <span class="app-name">奇想盒启动器</span>
       </div>
       <div class="titlebar-right">
         <!-- 未登录时显示 -->
@@ -642,7 +642,6 @@
         <div class="user-avatar-container" id="user-avatar-container" style="display: none;">
           <img class="user-avatar-btn" id="user-avatar-btn" src="" alt="用户头像" title="用户">
         </div>
-        <button class="titlebar-btn settings" id="settings-btn" title="设置">设置</button>
         <button class="titlebar-btn minimize" id="minimize-btn" title="最小化">─</button>
         <button class="titlebar-btn close" id="close-btn" title="关闭">✕</button>
       </div>
@@ -699,58 +698,6 @@
         <!-- 启动按钮 -->
         <div class="launch-button-container">
           <button class="launch-btn installing" id="launch-btn">安装环境</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 设置模态窗口 -->
-    <div class="modal-overlay" id="settings-modal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">设置</h3>
-          <button class="modal-close" id="settings-close">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">GitHub 仓库地址</label>
-            <input type="url" class="form-input" id="github-repo" placeholder="例如: https://github.com/username/repo">
-          </div>
-          
-          <div class="form-group">
-            <div class="form-checkbox">
-              <input type="checkbox" id="use-custom-url">
-              <label for="use-custom-url">使用自定义下载地址</label>
-            </div>
-          </div>
-          
-          <div class="form-group" id="custom-url-group" style="display: none;">
-            <label class="form-label">自定义下载地址</label>
-            <input type="url" class="form-input" id="custom-url" placeholder="直接输入 .whl 文件的下载地址">
-          </div>
-          
-          <div class="info-box info">
-            <strong>Python 环境：</strong>应用使用内置的 Python 3.12.8，无需额外安装。
-          </div>
-          
-          <div class="form-group">
-            <div class="form-checkbox">
-              <input type="checkbox" id="auto-update">
-              <label for="auto-update">自动检查更新</label>
-            </div>
-          </div>
-          
-          <div class="form-group" id="update-frequency-group">
-            <label class="form-label">检查更新频率</label>
-            <select class="form-select" id="update-frequency">
-              <option value="startup">每次启动时</option>
-              <option value="daily">每天</option>
-              <option value="weekly">每周</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="settings-cancel">取消</button>
-          <button class="btn btn-primary" id="settings-save">保存</button>
         </div>
       </div>
     </div>

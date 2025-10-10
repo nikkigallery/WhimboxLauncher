@@ -1,7 +1,6 @@
 // ==================== 导入模块 ====================
-import { initLoginModule, updateUserUI } from './login/login.js';
-import { openSettingsModal, initSettingsModule, loadSettings } from './settings/settings.js';
-import { apiClient } from './api/api-client.js';
+import { initLoginModule, updateUserUI } from './login.js';
+import { apiClient } from './api-client.js';
 
 // 与主进程通信的API
 const api = window.electronAPI;
@@ -12,13 +11,13 @@ let appState = {
   pythonReady: false,
   appInstalled: false,
   autoUpdateAvailable: false,
+  manualUpdateAvailable: false,
   isProcessing: false
 };
 
 // DOM元素
 const elements = {
   // 标题栏按钮
-  settingsBtn: document.getElementById('settings-btn'),
   minimizeBtn: document.getElementById('minimize-btn'),
   closeBtn: document.getElementById('close-btn'),
   
@@ -41,12 +40,6 @@ const elements = {
 };
 
 // ==================== 标题栏功能 ====================
-
-// 设置按钮
-elements.settingsBtn.addEventListener('click', () => {
-  openSettingsModal();
-});
-
 // 最小化按钮
 elements.minimizeBtn.addEventListener('click', () => {
   api.minimizeWindow();
@@ -72,6 +65,9 @@ elements.launchBtn.addEventListener('click', async () => {
     } else if (appState.autoUpdateAvailable) {
       // 自动更新
       await autoUpdate();
+    } else if (appState.manualUpdateAvailable) {
+      // 手动更新
+      await manualUpdate();
     } else if (appState.appInstalled) {
       // 启动应用
       await launchApplication();
@@ -86,61 +82,6 @@ elements.launchBtn.addEventListener('click', async () => {
 });
 
 // ==================== 工具函数 ====================
-
-/**
- * 比较版本号
- * @param {string} remoteVersion - 远端版本号
- * @param {string} localVersion - 本地版本号
- * @returns {boolean} 远端版本是否更新
- */
-function compareVersions(remoteVersion, localVersion) {
-  // 如果本地没有版本信息，认为有更新
-  if (!localVersion) {
-    return true;
-  }
-
-  // 如果远端或本地版本格式无效，返回false
-  if (!remoteVersion || remoteVersion === 'unknown') {
-    return false;
-  }
-
-  try {
-    // 移除版本号中的 'v' 前缀（如果有）
-    const remote = remoteVersion.replace(/^v/, '');
-    const local = localVersion.replace(/^v/, '');
-
-    // 分割版本号
-    const remoteParts = remote.split('.').map(part => {
-      // 处理可能包含非数字字符的部分（如 1.0.0-beta）
-      const num = parseInt(part.split(/[-+]/)[0], 10);
-      return isNaN(num) ? 0 : num;
-    });
-    const localParts = local.split('.').map(part => {
-      const num = parseInt(part.split(/[-+]/)[0], 10);
-      return isNaN(num) ? 0 : num;
-    });
-
-    // 比较每个部分
-    const maxLength = Math.max(remoteParts.length, localParts.length);
-    for (let i = 0; i < maxLength; i++) {
-      const remotePart = remoteParts[i] || 0;
-      const localPart = localParts[i] || 0;
-
-      if (remotePart > localPart) {
-        return true;
-      } else if (remotePart < localPart) {
-        return false;
-      }
-    }
-
-    // 版本号相同
-    return false;
-  } catch (error) {
-    console.error('版本号比较失败:', error);
-    return false;
-  }
-}
-
 /**
  * 检查应用更新
  * @returns {Promise<object>} 更新检测结果
@@ -155,7 +96,7 @@ async function checkAppUpdate() {
     const localVersion = appStatus.version;
     
     // 比较版本
-    const hasUpdate = compareVersions(remoteVersion.version, localVersion);
+    const hasUpdate = localVersion ? remoteVersion.version > localVersion : false;
     
     return {
       needsLogin: false,
@@ -220,14 +161,14 @@ async function setupEnvironment() {
 // 执行更新
 async function autoUpdate() {
   try {
-    updateButtonState('updating', '更新中...');
+    updateButtonState('updating', '自动更新中...');
     showProgress('正在下载更新...', 0);
     
     const updateResult = await checkAppUpdate();
     if (updateResult.hasUpdate) {
       const url = updateResult.downloadUrl;
       const md5 = updateResult.md5;
-      await api.downloadAndInstall(url, md5);
+      await api.downloadAndInstallWhl(url, md5);
     }
     
     appState.appInstalled = true;
@@ -246,6 +187,31 @@ async function autoUpdate() {
     hideProgress();
     updateButtonState('updating', '自动更新');
     elements.updateStatus.textContent = '更新失败';
+    throw error;
+  }
+}
+
+async function manualUpdate() {
+  try {
+    updateButtonState('updating', '安装更新中...');
+    showProgress('安装更新中...', 0);
+    const whlPath = await api.checkManualUpdateWhl();
+    if (whlPath) {
+      await api.installWhl(whlPath);
+      appState.appInstalled = true;
+      appState.manualUpdateAvailable = false;
+      // 获取应用状态
+      const appStatus = await api.getAppStatus();
+      if (appStatus.installed) {
+        elements.appVersionDisplay.textContent = appStatus.version || '已安装';
+      }
+      hideProgress();
+      updateButtonState('ready', '一键启动');
+      elements.updateStatus.textContent = '未登录';
+    } else {
+      throw new Error('没有找到更新包');
+    }
+  } catch (error) {
     throw error;
   }
 }
@@ -334,13 +300,6 @@ api.onLaunchAppEnd((data) => {
   console.log('应用运行结束:', data.message);
   updateButtonState('ready', '一键启动');
 });
-
-// 应用运行需要APIKEY
-api.onLaunchAppNeedApiKey((data) => {
-  console.log('应用运行需要APIKEY:', data.message);
-  alert('请先设置大模型api');
-  openSettingsModal();
-});
 // ==================== 初始化 ====================
 
 async function initialize() {
@@ -348,10 +307,6 @@ async function initialize() {
   
   // 初始化模块
   initLoginModule();
-  initSettingsModule(api);
-  
-  // 加载设置
-  await loadSettings(api);
   
   // 检查并更新用户登录状态
   appState.isLogin = updateUserUI();
@@ -424,6 +379,12 @@ async function initialize() {
   } else{
     appState.autoUpdateAvailable = false;
     elements.updateStatus.textContent = '未登录';
+
+    const manualUpdateWhl = await api.checkManualUpdateWhl();
+    if (manualUpdateWhl) {
+      appState.manualUpdateAvailable = true;
+      elements.updateStatus.textContent = '有手动更新包';
+    }
   }
   
 
@@ -431,10 +392,12 @@ async function initialize() {
     updateButtonState('installing', '安装环境');
   } else if (appState.autoUpdateAvailable) {
     updateButtonState('updating', '自动更新');
+  } else if (appState.manualUpdateAvailable) {
+    updateButtonState('updating', '安装更新');
   } else if (appState.appInstalled) {
     updateButtonState('ready', '一键启动');
   } else{
-    updateButtonState('error', '网络连接失败');
+    updateButtonState('error', '请先登录');
   }
 }
 

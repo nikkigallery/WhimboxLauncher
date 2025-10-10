@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
 const { EventEmitter } = require('events');
-const configManager = require('./config');
 const AdmZip = require('adm-zip');
 
 const REQUIRED_PYTHON_VERSION = '3.12.8';

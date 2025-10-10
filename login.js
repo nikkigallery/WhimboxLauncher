@@ -1,6 +1,6 @@
 // ==================== 登录模块 (ES6 Module) ====================
 
-import { apiClient } from '../api/api-client.js';
+import { apiClient } from './api-client.js';
 
 // 登录模块的 DOM 元素
 const loginElements = {
