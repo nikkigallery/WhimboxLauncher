@@ -110,15 +110,27 @@ async function checkAppUpdate() {
   } catch (error) {
     console.error('检查更新失败:', error);
     
-    // 如果是认证错误
-    if (error.message && error.message.includes('登录')) {
-      return {
-        needsLogin: true,
-        hasUpdate: false,
-        message: '登录已过期，请重新登录'
-      };
+
+    if (error.message){
+      // 如果是权限不够
+      if (error.message.includes('403')) {
+        return {
+          needsLogin: false,
+          hasUpdate: false,
+          needVip: true,
+          message: '权限不够，请升级会员'
+        }
+      }
+      // 如果是认证错误
+      else if (error.message.includes('登录')) {
+        return {
+          needsLogin: true,
+          hasUpdate: false,
+          needVip: false,
+          message: '登录已过期，请重新登录'
+        };
+      }    
     }
-    
     throw error;
   }
 }
@@ -207,7 +219,7 @@ async function manualUpdate() {
       }
       hideProgress();
       updateButtonState('ready', '一键启动');
-      elements.updateStatus.textContent = '未登录';
+      elements.updateStatus.textContent = '未登录，请手动更新';
     } else {
       throw new Error('没有找到更新包');
     }
@@ -255,6 +267,44 @@ function hideProgress() {
 function updateProgress(percent) {
   elements.progressPercent.textContent = percent + '%';
   elements.progressFill.style.width = percent + '%';
+}
+
+// 检查并更新状态
+async function checkAndUpdateStatus() {
+  try {
+    elements.updateStatus.textContent = '检测中...';
+    const updateResult = await checkAppUpdate();
+    if (updateResult.needVip) {
+      appState.autoUpdateAvailable = false;
+      elements.updateStatus.textContent = '未开通会员，请手动更新';
+      console.log('更新检测需要升级会员:', updateResult.message);
+    } else if (updateResult.needsLogin) {
+      appState.autoUpdateAvailable = false;
+      elements.updateStatus.textContent = '请重新登录';
+      console.log('更新检测需要登录:', updateResult.message);
+    } else if (updateResult.hasUpdate) {
+      appState.autoUpdateAvailable = true;
+      elements.updateStatus.textContent = '有新版本';
+      console.log('发现新版本:', {
+        local: updateResult.localVersion,
+        remote: updateResult.remoteVersion,
+        downloadUrl: updateResult.downloadUrl
+      });
+    } else {
+      appState.autoUpdateAvailable = false;
+      elements.updateStatus.textContent = '已是最新';
+      console.log('已是最新版本:', updateResult.localVersion);
+    }
+    
+    // 更新按钮状态
+    if (appState.autoUpdateAvailable) {
+      updateButtonState('updating', '自动更新');
+    }
+  } catch (error) {
+    console.error('更新检测失败:', error);
+    appState.autoUpdateAvailable = false;
+    elements.updateStatus.textContent = '检测失败';
+  }
 }
 
 // ==================== 事件监听 ====================
@@ -305,6 +355,22 @@ api.onLaunchAppEnd((data) => {
   console.log('应用运行结束:', data.message);
   updateButtonState('ready', '一键启动');
 });
+
+// 监听登录成功事件，重新检查更新状态
+window.addEventListener('user-login-success', async () => {
+  console.log('登录成功，重新检查更新状态...');
+  appState.isLogin = true;
+  await checkAndUpdateStatus();
+});
+
+// 监听退出登录事件
+window.addEventListener('user-logout', async () => {
+  console.log('退出登录，重置状态...');
+  appState.isLogin = false;
+  appState.autoUpdateAvailable = false;
+  elements.updateStatus.textContent = '未登录，请手动更新';
+});
+
 // ==================== 初始化 ====================
 
 async function initialize() {
@@ -355,35 +421,10 @@ async function initialize() {
   }
 
   if (appState.isLogin) {
-    try {
-      elements.updateStatus.textContent = '检测中...';
-      const updateResult = await checkAppUpdate();
-      
-      if (updateResult.needsLogin) {
-        appState.autoUpdateAvailable = false;
-        elements.updateStatus.textContent = '请重新登录';
-        console.log('更新检测需要登录:', updateResult.message);
-      } else if (updateResult.hasUpdate) {
-        appState.autoUpdateAvailable = true;
-        elements.updateStatus.textContent = '有新版本';
-        console.log('发现新版本:', {
-          local: updateResult.localVersion,
-          remote: updateResult.remoteVersion,
-          downloadUrl: updateResult.downloadUrl
-        });
-      } else {
-        appState.autoUpdateAvailable = false;
-        elements.updateStatus.textContent = '已是最新';
-        console.log('已是最新版本:', updateResult.localVersion);
-      }
-    } catch (error) {
-      console.error('更新检测失败:', error);
-      appState.autoUpdateAvailable = false;
-      elements.updateStatus.textContent = '检测失败';
-    }
+    await checkAndUpdateStatus();
   } else{
     appState.autoUpdateAvailable = false;
-    elements.updateStatus.textContent = '未登录';
+    elements.updateStatus.textContent = '未登录，请手动更新';
 
     const manualUpdateWhl = await api.checkManualUpdateWhl();
     if (manualUpdateWhl) {

@@ -183,6 +183,10 @@ function handleLogout() {
   if (confirm('确定要退出登录吗？')) {
     apiClient.logout();
     updateUserUI();
+    
+    // 触发退出登录事件
+    window.dispatchEvent(new CustomEvent('user-logout'));
+    
     alert('已退出登录');
   }
   
