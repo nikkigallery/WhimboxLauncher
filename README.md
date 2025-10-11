@@ -1,18 +1,15 @@
-# Whimbox Launcher
+# 奇想盒启动器
 
-Whimbox Launcher 是一个用于下载、安装和启动 Python 项目的 Electron 应用程序。它可以自动从 GitHub Releases 或自定义 URL 获取最新的 wheel 包并安装。
+自动更新、安装，一键启动奇想盒
 
-## 功能特点
+## 奇想盒更新
+1. 自动更新：前往 [暖暖照相馆](https://nikkigallery.vip/) 注册账号，并开通自动更新会员（免费内测中，如有需要找群主开一下就行），启动器会在每次打开时自动检测并更新。
+2. 手动更新：下载 [奇想盒项目release](https://github.com/nikkigallery/Whimbox/releases) 中的whl包，放到启动器的downloads目录下，重启启动器，会自动检测并安装。
 
-- 自动从 GitHub Releases 获取最新的 wheel 包
-- 支持自定义下载 URL
-- 内置简易 Python 环境
-- 自动安装 wheel 包
-- 自动更新检查
+## 跑图脚本更新
+待实现，目前会自动下载默认的脚本，够每日任务用。
 
-## 安装和运行
-
-### 开发
+## 开发
 1. 安装依赖：
 ```bash
 npm install
@@ -26,18 +23,6 @@ npm start
 
 ### 打包
 
-使用 Electron Builder 构建应用：
-
 ```bash
 npm run build
-```
-
-## 数据存储位置
-安装后的目录结构：
-```
-安装位置\
-├── whimbox_launcher.exe           # 主程序
-├── python-embedded\               # 简易 Python 环境
-├── app-data\                      # 奇想盒数据和配置
-└── downloads\                     # 下载的 wheel 包
 ```
