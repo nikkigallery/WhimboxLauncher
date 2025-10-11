@@ -29,9 +29,10 @@ const createWindow = () => {
   mainWindow.loadFile('index.html');
   
   // 开发环境下打开开发者工具
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
+  // if (process.env.NODE_ENV === 'development') {
+    // mainWindow.webContents.openDevTools();
+  // }
+  mainWindow.webContents.openDevTools();
 };
 
 // 应用准备就绪时创建窗口

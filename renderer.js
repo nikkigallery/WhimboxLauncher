@@ -454,5 +454,17 @@ async function initialize() {
   }
 }
 
+// 设置背景图
+function setBackgroundImage() {
+  const bgPath = api.getAssetPath();
+  const mainContainer = document.querySelector('.main-container');
+  if (mainContainer) {
+    mainContainer.style.backgroundImage = `url('${bgPath}')`;
+  }
+}
+
 // 当DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', initialize);
+document.addEventListener('DOMContentLoaded', () => {
+  setBackgroundImage();
+  initialize();
+});

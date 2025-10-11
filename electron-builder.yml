@@ -17,6 +17,14 @@ files:
   - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
   - "!**/{appveyor.yml,.travis.yml,circle.yml}"
   - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+  - "!.vscode/**/*"
+  - "!app-data/**/*"
+  - "!configs/**/*"
+  - "!dist/**/*"
+  - "!downloads/**/*"
+  - "!logs/**/*"
+  - "!python-embedded/**/*"
+  - "!scripts/**/*"
 
 # 额外资源
 extraResources:
