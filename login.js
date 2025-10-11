@@ -116,7 +116,6 @@ async function handleWechatLogin() {
     // const result = await api.wechatLogin();
     
     alert('微信登录功能待实现');
-    closeLoginModal();
   } catch (error) {
     console.error('微信登录失败:', error);
     alert('微信登录失败: ' + error.message);

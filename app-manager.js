@@ -227,6 +227,13 @@ class AppManager extends EventEmitter {
         windowsHide: true,
       });
 
+      process.stdout.on('data', (data) => {
+        const output = data.toString();
+        if (output.includes('WHIMBOX_READY')) {
+          this.emit('launch-app-success');
+        }
+      });
+
       // 监听进程错误
       process.on('error', (error) => {
         console.error(`运行异常: ${error.message}`);

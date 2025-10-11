@@ -221,7 +221,6 @@ async function launchApplication() {
   try {
     updateButtonState('ready', '启动中...');
     await api.launchApp();
-    updateButtonState('ready', '运行中...');
   } catch (error) {
     updateButtonState('ready', '一键启动');
     throw error;
@@ -293,6 +292,12 @@ api.onPythonSetup((data) => {
   } else if (data.stage === 'setup-complete') {
     showProgress(data.message, 100);
   }
+});
+
+// 应用运行状态更新
+api.onLaunchAppSuccess((data) => {
+  console.log('应用运行成功:', data.message);
+  updateButtonState('ready', '运行中...');
 });
 
 // 应用运行结束
@@ -387,6 +392,13 @@ async function initialize() {
     }
   }
   
+  // 下载脚本
+  const scriptResult = await api.downloadAndUnzipScript();
+  if (scriptResult.success) {
+    console.log('脚本下载成功:', scriptResult.message);
+  } else {
+    console.error('脚本下载失败:', scriptResult.message);
+  }
 
   if (!appState.pythonReady) {
     updateButtonState('installing', '安装环境');

@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchApp: () => ipcRenderer.invoke('launch-app'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
+  // 脚本下载
+  downloadAndUnzipScript: () => ipcRenderer.invoke('download-and-unzip-script'),
+
   // 事件监听
   onDownloadProgress: (callback) => {
     ipcRenderer.on('download-progress', (_, progress) => callback(progress));
@@ -29,6 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onPythonSetup: (callback) => {
     ipcRenderer.on('python-setup', (_, data) => callback(data));
+  },
+  onLaunchAppSuccess: (callback) => {
+    ipcRenderer.on('launch-app-success', (_, data) => callback(data));
   },
   onLaunchAppEnd: (callback) => {
     ipcRenderer.on('launch-app-end', (_, data) => callback(data));

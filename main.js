@@ -3,6 +3,7 @@ const path = require('path');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
+const scriptManager = require('./script-manager');
 
 // 主窗口引用
 let mainWindow;
@@ -75,6 +76,10 @@ app.whenReady().then(() => {
 
     appManager.on('launch-app-end', (data) => {
       mainWindow.webContents.send('launch-app-end', {message: data.message});
+    });
+
+    appManager.on('launch-app-success', () => {
+      mainWindow.webContents.send('launch-app-success', {message: '奇想盒启动成功'});
     });
   }
   
@@ -161,5 +166,14 @@ function setupIpcHandlers() {
   
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  // 脚本下载
+  ipcMain.handle('download-and-unzip-script', async () => {
+    try {
+      return await scriptManager.downloadAndUnzipScript();
+    } catch (error) {
+      throw new Error(`下载脚本失败: ${error.message}`);
+    }
   });
 }
