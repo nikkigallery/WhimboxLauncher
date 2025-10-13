@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
@@ -107,6 +107,11 @@ function setupIpcHandlers() {
     if (mainWindow) {
       mainWindow.close();
     }
+  });
+
+  // 打开外部链接
+  ipcMain.on('open-external', (_, url) => {
+    shell.openExternal(url);
   });
   
   // Python环境
