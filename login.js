@@ -10,7 +10,8 @@ const loginElements = {
   loginSubmit: document.getElementById('login-submit'),
   email: document.getElementById('email'),
   password: document.getElementById('password'),
-  loginWx: document.getElementById('login-wx')
+  loginWx: document.getElementById('login-wx'),
+  registerBtn: document.getElementById('register-btn')
 };
 
 // 自定义提示框元素
@@ -150,6 +151,19 @@ async function handleWechatLogin() {
   }
 }
 
+/**
+ * 注册按钮处理
+ */
+function handleRegister() {
+  // 使用 electronAPI 打开外部浏览器
+  const api = window.electronAPI;
+  if (api && api.openExternal) {
+    api.openExternal('https://nikkigallery.vip/');
+  } else {
+    console.error('electronAPI.openExternal 不可用');
+  }
+}
+
 // ==================== 用户界面管理 ====================
 
 /**
@@ -241,6 +255,9 @@ export function initLoginModule() {
   
   // 微信登录
   loginElements.loginWx.addEventListener('click', handleWechatLogin);
+  
+  // 注册按钮
+  loginElements.registerBtn.addEventListener('click', handleRegister);
   
   // 支持回车键提交
   loginElements.email.addEventListener('keypress', (e) => {

@@ -440,8 +440,12 @@
         padding: 15px 25px;
         border-top: 1px solid rgba(0, 0, 0, 0.1);
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         gap: 10px;
+      }
+      
+      .modal-footer.right {
+        justify-content: flex-end;
       }
       
       .btn {
@@ -779,10 +783,13 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" id="login-cancel">取消</button>
-          <button class="btn btn-primary" id="login-submit">登录</button>
+          <button class="btn btn-primary" id="register-btn">注册</button>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" id="login-cancel">取消</button>
+            <button class="btn btn-primary" id="login-submit">登录</button>
+          </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer right">
           <button class="btn btn-success" id="login-wx">微信登录</button>
         </div>
       </div>
