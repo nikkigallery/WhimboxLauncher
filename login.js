@@ -13,6 +13,30 @@ const loginElements = {
   loginWx: document.getElementById('login-wx')
 };
 
+// 自定义提示框元素
+const alertElements = {
+  overlay: document.getElementById('custom-alert-overlay'),
+  message: document.getElementById('custom-alert-message'),
+  button: document.getElementById('custom-alert-button')
+};
+
+/**
+ * 自定义 alert 函数（非阻塞）
+ * @param {string} message - 提示消息
+ */
+export function customAlert(message) {
+  alertElements.message.textContent = message;
+  alertElements.overlay.classList.add('show');
+  
+  // 确保按钮可以关闭提示框
+  const closeAlert = () => {
+    alertElements.overlay.classList.remove('show');
+    alertElements.button.removeEventListener('click', closeAlert);
+  };
+  
+  alertElements.button.addEventListener('click', closeAlert);
+}
+
 // 用户界面元素
 const userElements = {
   loginBtn: document.getElementById('login-btn'),
@@ -56,22 +80,22 @@ async function handleEmailLogin() {
   
   // 表单验证
   if (!email) {
-    alert('请输入邮箱地址');
-    loginElements.email.focus();
+    customAlert('请输入邮箱地址');
+    setTimeout(() => loginElements.email.focus(), 100);
     return;
   }
   
   if (!password) {
-    alert('请输入密码');
-    loginElements.password.focus();
+    customAlert('请输入密码');
+    setTimeout(() => loginElements.password.focus(), 100);
     return;
   }
   
   // 简单的邮箱格式验证
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    alert('请输入有效的邮箱地址');
-    loginElements.email.focus();
+    customAlert('请输入有效的邮箱地址');
+    setTimeout(() => loginElements.email.focus(), 100);
     return;
   }
   
@@ -95,7 +119,11 @@ async function handleEmailLogin() {
     }));
   } catch (error) {
     console.error('登录失败:', error);
-    alert('登录失败: ' + error.message);
+    if (error.message.includes('400')) {
+      customAlert('邮箱或密码错误');
+    }else{
+      customAlert('登录失败: ' + error.message);
+    }
   } finally {
     // 恢复提交按钮
     loginElements.loginSubmit.disabled = false;
@@ -115,10 +143,10 @@ async function handleWechatLogin() {
     // const api = window.electronAPI;
     // const result = await api.wechatLogin();
     
-    alert('微信登录功能待实现');
+    customAlert('微信登录功能待实现');
   } catch (error) {
     console.error('微信登录失败:', error);
-    alert('微信登录失败: ' + error.message);
+    customAlert('微信登录失败: ' + error.message);
   }
 }
 
@@ -180,15 +208,12 @@ function toggleUserMenu() {
  * 处理退出登录
  */
 function handleLogout() {
-  if (confirm('确定要退出登录吗？')) {
-    apiClient.logout();
-    updateUserUI();
-    
-    // 触发退出登录事件
-    window.dispatchEvent(new CustomEvent('user-logout'));
-    
-    alert('已退出登录');
-  }
+  apiClient.logout();
+  updateUserUI();
+  
+  // 触发退出登录事件
+  window.dispatchEvent(new CustomEvent('user-logout'));
+
   
   // 关闭用户菜单
   userElements.userMenu.style.display = 'none';

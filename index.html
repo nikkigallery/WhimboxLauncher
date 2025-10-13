@@ -615,6 +615,77 @@
         border-color: rgba(255, 255, 255, 0.6);
         transform: scale(1.05);
       }
+      
+      /* 自定义提示框 */
+      .custom-alert-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(5px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .custom-alert-overlay.show {
+        display: flex;
+      }
+      
+      .custom-alert {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 25px 30px;
+        min-width: 300px;
+        max-width: 500px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: alertSlideIn 0.2s ease-out;
+      }
+      
+      @keyframes alertSlideIn {
+        from {
+          transform: scale(0.9);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      
+      .custom-alert-message {
+        color: #333;
+        font-size: 15px;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      
+      .custom-alert-button {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      
+      .custom-alert-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+      }
+      
+      .custom-alert-button:active {
+        transform: translateY(0);
+      }
     </style>
   </head>
   <body>
@@ -730,6 +801,14 @@
       <button class="user-menu-item" id="user-menu-logout">
         <span>退出登录</span>
       </button>
+    </div>
+
+    <!-- 自定义提示框 -->
+    <div class="custom-alert-overlay" id="custom-alert-overlay">
+      <div class="custom-alert">
+        <div class="custom-alert-message" id="custom-alert-message"></div>
+        <button class="custom-alert-button" id="custom-alert-button">确定</button>
+      </div>
     </div>
 
     <script type="module" src="./renderer.js"></script>

@@ -1,5 +1,5 @@
 // ==================== 导入模块 ====================
-import { initLoginModule, updateUserUI } from './login.js';
+import { initLoginModule, updateUserUI, customAlert } from './login.js';
 import { apiClient } from './api-client.js';
 
 // 与主进程通信的API
@@ -55,29 +55,27 @@ elements.closeBtn.addEventListener('click', () => {
 elements.launchBtn.addEventListener('click', async () => {
   if (appState.isProcessing) return;
   
-  try {
-    appState.isProcessing = true;
-    elements.launchBtn.disabled = true;
-    
-    if (!appState.pythonReady) {
-      // 安装环境
-      await setupEnvironment();
-    } else if (appState.autoUpdateAvailable) {
-      // 自动更新
-      await autoUpdate();
-    } else if (appState.manualUpdateAvailable) {
-      // 手动更新
-      await manualUpdate();
-    } else if (appState.appInstalled) {
-      // 启动应用
-      await launchApplication();
-    }
-  } catch (error) {
-    console.error('操作失败:', error);
-    alert('操作失败: ' + error.message);
-  } finally {
+  appState.isProcessing = true;
+  elements.launchBtn.disabled = true;
+  
+  if (!appState.pythonReady) {
+    // 安装环境
+    await setupEnvironment();
     appState.isProcessing = false;
     elements.launchBtn.disabled = false;
+  } else if (appState.autoUpdateAvailable) {
+    // 自动更新
+    await autoUpdate();
+    appState.isProcessing = false;
+    elements.launchBtn.disabled = false;
+  } else if (appState.manualUpdateAvailable) {
+    // 手动更新
+    await manualUpdate();
+    appState.isProcessing = false;
+    elements.launchBtn.disabled = false;
+  } else if (appState.appInstalled) {
+    // 启动应用
+    await launchApplication();
   }
 });
 
@@ -95,8 +93,7 @@ async function checkAppUpdate() {
     const appStatus = await api.getAppStatus();
     const localVersion = appStatus.version;
     
-    // 比较版本
-    const hasUpdate = localVersion ? remoteVersion.version > localVersion : false;
+    const hasUpdate = localVersion ? remoteVersion.version > localVersion : true;
     
     return {
       needsLogin: false,
@@ -109,8 +106,6 @@ async function checkAppUpdate() {
     };
   } catch (error) {
     console.error('检查更新失败:', error);
-    
-
     if (error.message){
       // 如果是权限不够
       if (error.message.includes('403')) {
@@ -142,31 +137,15 @@ async function setupEnvironment() {
   try {
     updateButtonState('installing', '安装环境中...');
     showProgress('开始配置 Python 环境...', 0);
-    
     // 安装Python环境
-    const pythonEnv = await api.setupPythonEnvironment();
-    
-    // 验证安装结果
-    if (!pythonEnv.installed || !pythonEnv.pipAvailable) {
-      throw new Error('Python 环境或 pip 安装不完整');
-    }
-    
-    appState.pythonReady = true;
-    elements.pythonStatus.textContent = '就绪';
-    
-    hideProgress();
+    await api.setupPythonEnvironment();
+    await checkState();
   } catch (error) {
-    hideProgress();
-    appState.pythonReady = false;
-    elements.pythonStatus.textContent = '安装失败';
-    elements.updateStatus.textContent = '环境未就绪';
     updateButtonState('installing', '重装环境');
-    
-    // 显示详细错误信息
-    console.error('安装环境失败:', error);
-    alert(`环境安装失败：${error.message}\n\n请检查网络连接后重试。`);
-    
-    throw error;
+    elements.pythonStatus.textContent = '安装失败';
+    customAlert(`环境安装失败：${error.message}`);
+  } finally {
+    hideProgress();
   }
 }
 
@@ -182,60 +161,44 @@ async function autoUpdate() {
       const md5 = updateResult.md5;
       await api.downloadAndInstallWhl(url, md5);
     }
-    
-    appState.appInstalled = true;
-    appState.autoUpdateAvailable = false;
-    
-    // 获取应用状态
-    const appStatus = await api.getAppStatus();
-    if (appStatus.installed) {
-      elements.appVersionDisplay.textContent = appStatus.version || '已安装';
-    }
-    
-    hideProgress();
-    updateButtonState('ready', '一键启动');
-    elements.updateStatus.textContent = '已是最新';
+    await checkState();
   } catch (error) {
+    updateButtonState('updating', '重新更新');
+    elements.updateStatus.textContent = '自动更新失败';
+    customAlert(`自动更新失败：${error.message}`);
+  } finally {
     hideProgress();
-    updateButtonState('updating', '自动更新');
-    elements.updateStatus.textContent = '更新失败';
-    throw error;
   }
 }
 
 async function manualUpdate() {
   try {
-    updateButtonState('updating', '安装更新中...');
+    updateButtonState('updating', '安装中...');
     showProgress('安装更新中...', 0);
     const whlPath = await api.checkManualUpdateWhl();
     if (whlPath) {
       await api.installWhl(whlPath);
-      appState.appInstalled = true;
-      appState.manualUpdateAvailable = false;
-      // 获取应用状态
-      const appStatus = await api.getAppStatus();
-      if (appStatus.installed) {
-        elements.appVersionDisplay.textContent = appStatus.version || '已安装';
-      }
-      hideProgress();
-      updateButtonState('ready', '一键启动');
-      elements.updateStatus.textContent = '未登录，请手动更新';
+      await checkState();
     } else {
       throw new Error('没有找到更新包');
     }
   } catch (error) {
-    throw error;
+    updateButtonState('updating', '重新安装');
+    elements.updateStatus.textContent = '安装失败';
+    customAlert(`手动更新失败：${error.message}`);
+  } finally {
+    hideProgress();
   }
 }
 
 // 启动应用
 async function launchApplication() {
   try {
-    updateButtonState('ready', '启动中...');
+    updateButtonState('ready', '奇想盒启动中');
     await api.launchApp();
   } catch (error) {
     updateButtonState('ready', '一键启动');
-    throw error;
+    customAlert(`启动失败：${error.message}`);
   }
 }
 
@@ -295,15 +258,24 @@ async function checkAndUpdateStatus() {
       elements.updateStatus.textContent = '已是最新';
       console.log('已是最新版本:', updateResult.localVersion);
     }
-    
-    // 更新按钮状态
-    if (appState.autoUpdateAvailable) {
-      updateButtonState('updating', '自动更新');
-    }
   } catch (error) {
     console.error('更新检测失败:', error);
     appState.autoUpdateAvailable = false;
     elements.updateStatus.textContent = '检测失败';
+  }
+}
+
+function updateMainButton(){
+  if (!appState.pythonReady) {
+    updateButtonState('installing', '安装环境');
+  } else if (appState.autoUpdateAvailable) {
+    updateButtonState('updating', '自动更新');
+  } else if (appState.manualUpdateAvailable) {
+    updateButtonState('updating', '安装更新');
+  } else if (appState.appInstalled) {
+    updateButtonState('ready', '一键启动');
+  } else{
+    updateButtonState('error', '请先登录');
   }
 }
 
@@ -345,30 +317,31 @@ api.onPythonSetup((data) => {
 });
 
 // 应用运行状态更新
-api.onLaunchAppSuccess((data) => {
-  console.log('应用运行成功:', data.message);
-  updateButtonState('ready', '运行中...');
+api.onLaunchAppStatus((data) => {
+  console.log('应用运行状态:', data.message);
+  updateButtonState('ready', data.message);
 });
 
 // 应用运行结束
 api.onLaunchAppEnd((data) => {
   console.log('应用运行结束:', data.message);
   updateButtonState('ready', '一键启动');
+  appState.isProcessing = false;
+  elements.launchBtn.disabled = false;
 });
 
 // 监听登录成功事件，重新检查更新状态
 window.addEventListener('user-login-success', async () => {
   console.log('登录成功，重新检查更新状态...');
   appState.isLogin = true;
-  await checkAndUpdateStatus();
+  await checkState();
 });
 
 // 监听退出登录事件
 window.addEventListener('user-logout', async () => {
   console.log('退出登录，重置状态...');
   appState.isLogin = false;
-  appState.autoUpdateAvailable = false;
-  elements.updateStatus.textContent = '未登录，请手动更新';
+  await checkState();
 });
 
 // ==================== 初始化 ====================
@@ -381,7 +354,16 @@ async function initialize() {
   
   // 检查并更新用户登录状态
   appState.isLogin = updateUserUI();
+
+  await checkState();
+}
   
+
+async function checkState(){
+  appState.pythonReady = false;
+  appState.appInstalled = false;
+  appState.autoUpdateAvailable = false;
+  appState.manualUpdateAvailable = false;
   // 检查Python环境
   try {
     elements.pythonStatus.textContent = '检测中...';
@@ -441,17 +423,7 @@ async function initialize() {
     console.error('脚本下载失败:', scriptResult.message);
   }
 
-  if (!appState.pythonReady) {
-    updateButtonState('installing', '安装环境');
-  } else if (appState.autoUpdateAvailable) {
-    updateButtonState('updating', '自动更新');
-  } else if (appState.manualUpdateAvailable) {
-    updateButtonState('updating', '安装更新');
-  } else if (appState.appInstalled) {
-    updateButtonState('ready', '一键启动');
-  } else{
-    updateButtonState('error', '请先登录');
-  }
+  updateMainButton();
 }
 
 // 设置背景图

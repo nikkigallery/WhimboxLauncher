@@ -43,8 +43,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onPythonSetup: (callback) => {
     ipcRenderer.on('python-setup', (_, data) => callback(data));
   },
-  onLaunchAppSuccess: (callback) => {
-    ipcRenderer.on('launch-app-success', (_, data) => callback(data));
+  onLaunchAppStatus: (callback) => {
+    ipcRenderer.on('launch-app-status', (_, data) => callback(data));
   },
   onLaunchAppEnd: (callback) => {
     ipcRenderer.on('launch-app-end', (_, data) => callback(data));

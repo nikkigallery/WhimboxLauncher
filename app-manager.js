@@ -229,9 +229,13 @@ class AppManager extends EventEmitter {
 
       process.stdout.on('data', (data) => {
         const output = data.toString();
-        if (output.includes('WHIMBOX_READY')) {
-          this.emit('launch-app-success');
-        }
+        if(output.includes('WAIT_FOR_GAME_START')) {
+          this.emit('launch-app-status', {message: "等待游戏启动"});
+        } else if(output.includes('GAME_STARTED')) {
+          this.emit('launch-app-status', {message: "奇想盒启动中"});
+        } else if (output.includes('WHIMBOX_READY')) {
+          this.emit('launch-app-status', {message: "奇想盒运行中"});
+        } 
       });
 
       // 监听进程错误

@@ -29,10 +29,9 @@ const createWindow = () => {
   mainWindow.loadFile('index.html');
   
   // 开发环境下打开开发者工具
-  // if (process.env.NODE_ENV === 'development') {
-    // mainWindow.webContents.openDevTools();
-  // }
-  mainWindow.webContents.openDevTools();
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 // 应用准备就绪时创建窗口
@@ -79,8 +78,8 @@ app.whenReady().then(() => {
       mainWindow.webContents.send('launch-app-end', {message: data.message});
     });
 
-    appManager.on('launch-app-success', () => {
-      mainWindow.webContents.send('launch-app-success', {message: '奇想盒启动成功'});
+    appManager.on('launch-app-status', (data) => {
+      mainWindow.webContents.send('launch-app-status', {message: data.message});
     });
   }
   

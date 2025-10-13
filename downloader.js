@@ -29,7 +29,7 @@ class Downloader extends EventEmitter {
   async downloadFile(url, fileName, targetMd5=null) {
     const filePath = path.join(this.downloadDir, fileName);
     
-    if (targetMd5) {
+    if (targetMd5 && fs.existsSync(filePath)) {
       const fileMd5 = crypto.createHash('md5').update(fs.readFileSync(filePath)).digest('hex');
       if (fileMd5 === targetMd5) {
         console.log('file already exists and md5 matches, skip download');
