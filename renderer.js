@@ -76,6 +76,9 @@ elements.launchBtn.addEventListener('click', async () => {
   } else if (appState.appInstalled) {
     // 启动应用
     await launchApplication();
+  } else {
+    appState.isProcessing = false;
+    elements.launchBtn.disabled = false;
   }
 });
 
@@ -135,7 +138,7 @@ async function checkAppUpdate() {
 // 设置环境
 async function setupEnvironment() {
   try {
-    updateButtonState('installing', '安装环境中...');
+    updateButtonState('disabled', '安装环境中...');
     showProgress('开始配置 Python 环境...', 0);
     // 安装Python环境
     await api.setupPythonEnvironment();
@@ -152,7 +155,7 @@ async function setupEnvironment() {
 // 执行更新
 async function autoUpdate() {
   try {
-    updateButtonState('updating', '自动更新中...');
+    updateButtonState('disabled', '自动更新中...');
     showProgress('正在下载更新...', 0);
     
     const updateResult = await checkAppUpdate();
@@ -173,7 +176,7 @@ async function autoUpdate() {
 
 async function manualUpdate() {
   try {
-    updateButtonState('updating', '安装中...');
+    updateButtonState('disabled', '安装中...');
     showProgress('安装更新中...', 0);
     const whlPath = await api.checkManualUpdateWhl();
     if (whlPath) {
@@ -194,7 +197,7 @@ async function manualUpdate() {
 // 启动应用
 async function launchApplication() {
   try {
-    updateButtonState('ready', '奇想盒启动中');
+    updateButtonState('disabled', '奇想盒启动中');
     await api.launchApp();
   } catch (error) {
     updateButtonState('ready', '一键启动');
@@ -206,8 +209,10 @@ async function launchApplication() {
 
 // 更新按钮状态
 function updateButtonState(state, text) {
-  if (state === 'error') {
+  if (state === 'disabled') {
     elements.launchBtn.disabled = true;
+  }else{
+    elements.launchBtn.disabled = false;
   }
   elements.launchBtn.className = 'launch-btn ' + state;
   elements.launchBtn.textContent = text;
@@ -275,7 +280,7 @@ function updateMainButton(){
   } else if (appState.appInstalled) {
     updateButtonState('ready', '一键启动');
   } else{
-    updateButtonState('error', '请先登录');
+    updateButtonState('disabled', '请先登录');
   }
 }
 
@@ -319,7 +324,7 @@ api.onPythonSetup((data) => {
 // 应用运行状态更新
 api.onLaunchAppStatus((data) => {
   console.log('应用运行状态:', data.message);
-  updateButtonState('ready', data.message);
+  updateButtonState('disabled', data.message);
 });
 
 // 应用运行结束
