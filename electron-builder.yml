@@ -1,0 +1,67 @@
+appId: com.nikkigallery.whimbox_launcher
+productName: whimbox_launcher
+copyright: Copyright © 2025 nikkigallery
+
+# 应用目录配置
+directories:
+  output: dist
+  buildResources: assets
+
+# 文件配置
+files:
+  - "**/*"
+  - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+  - "!.editorconfig"
+  - "!**/._*"
+  - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
+  - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
+  - "!**/{appveyor.yml,.travis.yml,circle.yml}"
+  - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+  - "!.vscode/**/*"
+  - "!app-data/**/*"
+  - "!configs/**/*"
+  - "!dist/**/*"
+  - "!downloads/**/*"
+  - "!logs/**/*"
+  - "!python-embedded/**/*"
+  - "!scripts/**/*"
+
+# 额外资源
+extraResources:
+  - from: assets
+    to: assets
+    filter:
+      - "**/*"
+
+# Windows 配置
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  artifactName: ${productName}-setup-${version}.${ext}
+  requestedExecutionLevel: requireAdministrator  # 始终以管理员身份运行（因为需要写入安装目录）
+
+# NSIS 安装程序配置（Windows）
+nsis:
+  oneClick: false  # 不使用一键安装，显示安装向导
+  allowToChangeInstallationDirectory: true  # 允许用户选择安装目录
+  allowElevation: true  # 允许提升权限
+  installerIcon: assets/icon.ico  # 临时注释，等待创建图标文件
+  # uninstallerIcon: assets/icon.ico  # 临时注释，等待创建图标文件
+  # installerHeaderIcon: assets/icon.ico  # 临时注释，等待创建图标文件
+  createDesktopShortcut: always  # 始终创建桌面快捷方式
+  createStartMenuShortcut: true  # 创建开始菜单快捷方式
+  shortcutName: ${productName}  # 快捷方式名称
+  language: 2052  # 简体中文 (Simplified Chinese)
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  displayLanguageSelector: false
+  uninstallDisplayName: uninstall
+
+# 发布配置
+publish:
+  provider: github
+  owner: nikkigallery
+  repo: WhimboxLauncher
