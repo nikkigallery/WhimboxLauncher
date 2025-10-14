@@ -8,6 +8,7 @@ const api = window.electronAPI;
 // 应用状态
 let appState = {
   isLogin: false,
+  isVip: false,
   pythonReady: false,
   appInstalled: false,
   autoUpdateAvailable: false,
@@ -243,14 +244,17 @@ async function checkAndUpdateStatus() {
     elements.updateStatus.textContent = '检测中...';
     const updateResult = await checkAppUpdate();
     if (updateResult.needVip) {
+      appState.isVip = false;
       appState.autoUpdateAvailable = false;
-      elements.updateStatus.textContent = '未开通会员，请手动更新';
+      elements.updateStatus.textContent = '未开通会员，无法自动更新';
       console.log('更新检测需要升级会员:', updateResult.message);
     } else if (updateResult.needsLogin) {
+      appState.isLogin = false;
       appState.autoUpdateAvailable = false;
-      elements.updateStatus.textContent = '请重新登录';
+      elements.updateStatus.textContent = '检测失败，请重新登录';
       console.log('更新检测需要登录:', updateResult.message);
     } else if (updateResult.hasUpdate) {
+      appState.isVip = true;
       appState.autoUpdateAvailable = true;
       elements.updateStatus.textContent = '有新版本';
       console.log('发现新版本:', {
@@ -259,8 +263,10 @@ async function checkAndUpdateStatus() {
         downloadUrl: updateResult.downloadUrl
       });
     } else {
+      appState.isVip = true;
+      appState.isLogin = true;
       appState.autoUpdateAvailable = false;
-      elements.updateStatus.textContent = '已是最新';
+      elements.updateStatus.textContent = '已是最新版本';
       console.log('已是最新版本:', updateResult.localVersion);
     }
   } catch (error) {
@@ -279,8 +285,10 @@ function updateMainButton(){
     updateButtonState('updating', '安装更新');
   } else if (appState.appInstalled) {
     updateButtonState('ready', '一键启动');
-  } else{
+  } else if (!appState.isLogin){
     updateButtonState('disabled', '请先登录');
+  } else if (!appState.isVip){
+    updateButtonState('disabled', '请先开通会员');
   }
 }
 
@@ -375,7 +383,7 @@ async function checkState(){
     const pythonEnv = await api.detectPythonEnvironment();
     if (pythonEnv.installed) {
       appState.pythonReady = true;
-      elements.pythonStatus.textContent = '就绪';
+      elements.pythonStatus.textContent = '已就绪';
       console.log('Python环境就绪');
     }else{
       appState.pythonReady = false;
