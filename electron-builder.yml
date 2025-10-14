@@ -48,17 +48,18 @@ nsis:
   oneClick: false  # 不使用一键安装，显示安装向导
   allowToChangeInstallationDirectory: true  # 允许用户选择安装目录
   allowElevation: true  # 允许提升权限
-  installerIcon: assets/icon.ico  # 临时注释，等待创建图标文件
+  installerIcon: assets/icon.ico  
   # uninstallerIcon: assets/icon.ico  # 临时注释，等待创建图标文件
   # installerHeaderIcon: assets/icon.ico  # 临时注释，等待创建图标文件
   createDesktopShortcut: always  # 始终创建桌面快捷方式
   createStartMenuShortcut: true  # 创建开始菜单快捷方式
-  shortcutName: ${productName}  # 快捷方式名称
+  shortcutName: 奇想盒启动器  # 快捷方式名称
   language: 2052  # 简体中文 (Simplified Chinese)
   runAfterFinish: true
   deleteAppDataOnUninstall: false
   displayLanguageSelector: false
   uninstallDisplayName: uninstall
+  include: installer.nsh  # 自定义安装脚本，用于保护用户数据文件夹
 
 # 发布配置
 publish:
