@@ -21,6 +21,7 @@ const elements = {
   // 标题栏按钮
   minimizeBtn: document.getElementById('minimize-btn'),
   closeBtn: document.getElementById('close-btn'),
+  launcherVersion: document.getElementById('launcher-version'),
   
   // 公告
   announcementList: document.getElementById('announcement-list'),
@@ -359,6 +360,15 @@ window.addEventListener('user-logout', async () => {
 
 async function initialize() {
   api.mylogger.log('初始化应用...');
+  
+  // 获取并显示启动器版本号
+  try {
+    const version = await api.getAppVersion();
+    elements.launcherVersion.textContent = `${version}`;
+  } catch (error) {
+    api.mylogger.error('获取版本号失败:', error);
+    elements.launcherVersion.textContent = '?.?.?';
+  }
   
   // 初始化模块
   initLoginModule();
