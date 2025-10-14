@@ -27,6 +27,7 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "axios": "^1.12.2",
+    "electron-log": "^5.4.3",
     "electron-store": "^8.1.0"
   }
 }

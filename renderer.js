@@ -109,7 +109,7 @@ async function checkAppUpdate() {
       message: hasUpdate ? '发现新版本' : '已是最新版本'
     };
   } catch (error) {
-    console.error('检查更新失败:', error);
+    api.mylogger.error('检查更新失败:', error);
     if (error.message){
       // 如果是权限不够
       if (error.message.includes('403')) {
@@ -247,30 +247,29 @@ async function checkAndUpdateStatus() {
       appState.isVip = false;
       appState.autoUpdateAvailable = false;
       elements.updateStatus.textContent = '未开通会员，无法自动更新';
-      console.log('更新检测需要升级会员:', updateResult.message);
+      api.mylogger.log('更新检测需要升级会员:', updateResult.message);
     } else if (updateResult.needsLogin) {
       appState.isLogin = false;
       appState.autoUpdateAvailable = false;
       elements.updateStatus.textContent = '检测失败，请重新登录';
-      console.log('更新检测需要登录:', updateResult.message);
+      api.mylogger.log('更新检测需要登录:', updateResult.message);
     } else if (updateResult.hasUpdate) {
       appState.isVip = true;
       appState.autoUpdateAvailable = true;
       elements.updateStatus.textContent = '有新版本';
-      console.log('发现新版本:', {
+      api.mylogger.log('发现新版本:', {
         local: updateResult.localVersion,
         remote: updateResult.remoteVersion,
-        downloadUrl: updateResult.downloadUrl
       });
     } else {
       appState.isVip = true;
       appState.isLogin = true;
       appState.autoUpdateAvailable = false;
       elements.updateStatus.textContent = '已是最新版本';
-      console.log('已是最新版本:', updateResult.localVersion);
+      api.mylogger.log('已是最新版本:', updateResult.localVersion);
     }
   } catch (error) {
-    console.error('更新检测失败:', error);
+    api.mylogger.error('更新检测失败:', error);
     appState.autoUpdateAvailable = false;
     elements.updateStatus.textContent = '检测失败';
   }
@@ -302,7 +301,6 @@ api.onDownloadProgress((progress) => {
 // 安装进度
 let installProgress = 0
 api.onInstallProgress((message) => {
-  console.log('安装进度:', message);
   showProgress("安装中...", installProgress);
   installProgress += 5;
   if (installProgress > 100) {
@@ -312,7 +310,7 @@ api.onInstallProgress((message) => {
 
 // Python环境设置
 api.onPythonSetup((data) => {
-  console.log('Python设置:', data.message);
+  api.mylogger.log('Python设置:', data.message);
   
   if (data.stage === 'setup-start'){
     showProgress(data.message, 0);
@@ -331,13 +329,13 @@ api.onPythonSetup((data) => {
 
 // 应用运行状态更新
 api.onLaunchAppStatus((data) => {
-  console.log('应用运行状态:', data.message);
+  api.mylogger.log('应用运行状态:', data.message);
   updateButtonState('disabled', data.message);
 });
 
 // 应用运行结束
 api.onLaunchAppEnd((data) => {
-  console.log('应用运行结束:', data.message);
+  api.mylogger.log('应用运行结束:', data.message);
   updateButtonState('ready', '一键启动');
   appState.isProcessing = false;
   elements.launchBtn.disabled = false;
@@ -345,14 +343,14 @@ api.onLaunchAppEnd((data) => {
 
 // 监听登录成功事件，重新检查更新状态
 window.addEventListener('user-login-success', async () => {
-  console.log('登录成功，重新检查更新状态...');
+  api.mylogger.log('登录成功，重新检查更新状态...');
   appState.isLogin = true;
   await checkState();
 });
 
 // 监听退出登录事件
 window.addEventListener('user-logout', async () => {
-  console.log('退出登录，重置状态...');
+  api.mylogger.log('退出登录，重置状态...');
   appState.isLogin = false;
   await checkState();
 });
@@ -360,7 +358,7 @@ window.addEventListener('user-logout', async () => {
 // ==================== 初始化 ====================
 
 async function initialize() {
-  console.log('初始化应用...');
+  api.mylogger.log('初始化应用...');
   
   // 初始化模块
   initLoginModule();
@@ -384,14 +382,14 @@ async function checkState(){
     if (pythonEnv.installed) {
       appState.pythonReady = true;
       elements.pythonStatus.textContent = '已就绪';
-      console.log('Python环境就绪');
+      api.mylogger.log('Python环境就绪');
     }else{
       appState.pythonReady = false;
       elements.pythonStatus.textContent = '未安装';
-      console.log('Python环境未安装');
+      api.mylogger.log('Python环境未安装');
     }
   } catch (error) {
-    console.error('Python环境检测失败:', error);
+    api.mylogger.error('Python环境检测失败:', error);
     appState.pythonReady = false;
     elements.pythonStatus.textContent = '检测失败';
   }
@@ -403,14 +401,14 @@ async function checkState(){
     if (appStatus.installed) {
       appState.appInstalled = true;
       elements.appVersionDisplay.textContent = appStatus.version;
-      console.log('应用已安装，版本号：', appStatus.version);
+      api.mylogger.log('应用已安装，版本号：', appStatus.version);
     } else {
       appState.appInstalled = false;
       elements.appVersionDisplay.textContent = '未安装';
-      console.log('应用未安装');
+      api.mylogger.log('应用未安装');
     }
   } catch (error) {
-    console.error('应用版本检测失败:', error);
+    api.mylogger.error('应用版本检测失败:', error);
     appState.appInstalled = false;
     elements.appVersionDisplay.textContent = '检测失败';
   }
@@ -431,9 +429,9 @@ async function checkState(){
   // 下载脚本
   const scriptResult = await api.downloadAndUnzipScript();
   if (scriptResult.success) {
-    console.log('脚本下载成功:', scriptResult.message);
+    api.mylogger.log('脚本下载成功:', scriptResult.message);
   } else {
-    console.error('脚本下载失败:', scriptResult.message);
+    api.mylogger.error('脚本下载失败:', scriptResult.message);
   }
 
   updateMainButton();

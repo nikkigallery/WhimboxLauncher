@@ -1,7 +1,43 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 重写渲染进程的 console 方法，将日志发送到主进程
+const originalConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info,
+  debug: console.debug
+};
+
+// 重写 console.log
+const mylogger = {
+  log : (...args) => {
+    ipcRenderer.send('renderer-log', { level: 'info', args });
+    originalConsole.log(...args);
+  },
+  error : (...args) => {
+    ipcRenderer.send('renderer-log', { level: 'error', args });
+    originalConsole.error(...args);
+  },
+  warn : (...args) => {
+    ipcRenderer.send('renderer-log', { level: 'warn', args });
+    originalConsole.warn(...args);
+  },
+  info : (...args) => {
+    ipcRenderer.send('renderer-log', { level: 'info', args });
+    originalConsole.info(...args);
+  },
+  debug : (...args) => {
+    ipcRenderer.send('renderer-log', { level: 'debug', args });
+    originalConsole.debug(...args);
+  }
+};
+
 // 暴露给渲染进程的API
 contextBridge.exposeInMainWorld('electronAPI', {
+  // 日志
+  mylogger: mylogger,
+  
   // 获取资源路径
   getAssetPath: () => {
     // 开发环境用相对路径，生产环境用绝对路径
@@ -12,6 +48,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return 'file:///resources/assets/bg.webp';
     }
   },
+
   // 窗口控制
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
