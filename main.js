@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const logger = require('./logger'); // 引入日志模块（必须在最前面初始化）
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
@@ -112,6 +113,33 @@ function setupIpcHandlers() {
   // 打开外部链接
   ipcMain.on('open-external', (_, url) => {
     shell.openExternal(url);
+  });
+
+  // 接收渲染进程的日志
+  ipcMain.on('renderer-log', (_, data) => {
+    const { level, args } = data;
+    const logInstance = logger.getLogger();
+    
+    // 在日志前添加 [Renderer] 标记，以便区分渲染进程日志
+    const message = ['[Renderer]', ...args];
+    
+    // 根据日志级别调用对应的方法
+    switch (level) {
+      case 'error':
+        logInstance.error(...message);
+        break;
+      case 'warn':
+        logInstance.warn(...message);
+        break;
+      case 'info':
+        logInstance.info(...message);
+        break;
+      case 'debug':
+        logInstance.debug(...message);
+        break;
+      default:
+        logInstance.info(...message);
+    }
   });
   
   // Python环境
