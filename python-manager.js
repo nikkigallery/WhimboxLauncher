@@ -71,7 +71,7 @@ class PythonManager extends EventEmitter {
     try {
       // 检查是否已经解压
       const pythonExists = fs.existsSync(this.embeddedPythonPath);
-      const pipAlreadyInstalled = pythonExists && await this.isPipAvailable(this.embeddedPythonPath);
+      // const pipAlreadyInstalled = pythonExists && await this.isPipAvailable(this.embeddedPythonPath);
       
       if (!pythonExists) {
         // Python 未安装，需要完整安装
@@ -82,21 +82,11 @@ class PythonManager extends EventEmitter {
         // 解压 embedded Python
         await this.extractEmbeddedPython();
         
-        // 配置 pip（必须成功）
-        await this.setupPip();
-        
         this.emit('setup-complete', {
           message: '内置 Python 环境设置完成'
         });
-      } else if (!pipAlreadyInstalled) {
-        // 配置 pip（必须成功）
-        await this.setupPip();
-        
-        this.emit('setup-complete', {
-          message: 'pip 配置完成'
-        });
       } else {
-        // 都已安装
+        // 已安装
         this.emit('setup-complete', {
           message: '检测到已有内置 Python 环境'
         });
@@ -129,10 +119,10 @@ class PythonManager extends EventEmitter {
   async extractEmbeddedPython() {
     try {
       // embedded Python 压缩包路径（在应用资源目录中）
-      const zipPath = path.join(process.resourcesPath || __dirname, 'assets', 'python-3.12.8-embed-amd64.zip');
+      const zipPath = path.join(process.resourcesPath || __dirname, 'assets', 'Python312.zip');
       
       // 如果在开发环境，使用相对路径
-      const devZipPath = path.join(__dirname, 'assets', 'python-3.12.8-embed-amd64.zip');
+      const devZipPath = path.join(__dirname, 'assets', 'Python312.zip');
       const actualZipPath = fs.existsSync(zipPath) ? zipPath : devZipPath;
 
       if (!fs.existsSync(actualZipPath)) {
@@ -155,64 +145,64 @@ class PythonManager extends EventEmitter {
     }
   }
 
-  /**
-   * 配置 pip
-   * @returns {Promise<void>}
-   */
-  async setupPip() {
-    // 修改 python312._pth 文件以启用 site-packages
-    const pthFile = path.join(this.embeddedPythonDir, 'python312._pth');
+  // /**
+  //  * 配置 pip
+  //  * @returns {Promise<void>}
+  //  */
+  // async setupPip() {
+  //   // 修改 python312._pth 文件以启用 site-packages
+  //   const pthFile = path.join(this.embeddedPythonDir, 'python312._pth');
     
-    if (fs.existsSync(pthFile)) {
-      let content = fs.readFileSync(pthFile, 'utf8');
+  //   if (fs.existsSync(pthFile)) {
+  //     let content = fs.readFileSync(pthFile, 'utf8');
       
-      // 取消注释 import site 行
-      if (content.includes('#import site')) {
-        content = content.replace('#import site', 'import site');
-        fs.writeFileSync(pthFile, content);
-      } else if (!content.includes('import site')) {
-        // 如果不存在，添加 import site
-        content += '\nimport site\n';
-        fs.writeFileSync(pthFile, content);
-      }
-    }
+  //     // 取消注释 import site 行
+  //     if (content.includes('#import site')) {
+  //       content = content.replace('#import site', 'import site');
+  //       fs.writeFileSync(pthFile, content);
+  //     } else if (!content.includes('import site')) {
+  //       // 如果不存在，添加 import site
+  //       content += '\nimport site\n';
+  //       fs.writeFileSync(pthFile, content);
+  //     }
+  //   }
 
-    // 使用 assets 目录中的 get-pip.py
-    this.emit('setup-pip', { message: '正在准备 pip 安装程序...' });
+  //   // 使用 assets 目录中的 get-pip.py
+  //   this.emit('setup-pip', { message: '正在准备 pip 安装程序...' });
     
-    // get-pip.py 路径（在应用资源目录中）
-    const getPipZipPath = path.join(process.resourcesPath || __dirname, 'assets', 'get-pip.py');
+  //   // get-pip.py 路径（在应用资源目录中）
+  //   const getPipZipPath = path.join(process.resourcesPath || __dirname, 'assets', 'get-pip.py');
     
-    // 如果在开发环境，使用相对路径
-    const devGetPipPath = path.join(__dirname, 'assets', 'get-pip.py');
-    const getPipSourcePath = fs.existsSync(getPipZipPath) ? getPipZipPath : devGetPipPath;
+  //   // 如果在开发环境，使用相对路径
+  //   const devGetPipPath = path.join(__dirname, 'assets', 'get-pip.py');
+  //   const getPipSourcePath = fs.existsSync(getPipZipPath) ? getPipZipPath : devGetPipPath;
     
-    if (!fs.existsSync(getPipSourcePath)) {
-      throw new Error(`找不到 get-pip.py 文件: ${getPipSourcePath}`);
-    }
+  //   if (!fs.existsSync(getPipSourcePath)) {
+  //     throw new Error(`找不到 get-pip.py 文件: ${getPipSourcePath}`);
+  //   }
     
-    // 复制到 Python 目录
-    const getPipTargetPath = path.join(this.embeddedPythonDir, 'get-pip.py');
-    fs.copyFileSync(getPipSourcePath, getPipTargetPath);
+  //   // 复制到 Python 目录
+  //   const getPipTargetPath = path.join(this.embeddedPythonDir, 'get-pip.py');
+  //   fs.copyFileSync(getPipSourcePath, getPipTargetPath);
     
-    this.emit('setup-pip', { message: '正在安装 pip...' });
+  //   this.emit('setup-pip', { message: '正在安装 pip...' });
     
-    // 安装 pip
-    await this.runCommand(this.embeddedPythonPath, [getPipTargetPath], false, 120000); // 120秒超时
+  //   // 安装 pip
+  //   await this.runCommand(this.embeddedPythonPath, [getPipTargetPath], false, 120000); // 120秒超时
     
-    // 删除临时文件
-    if (fs.existsSync(getPipTargetPath)) {
-      fs.unlinkSync(getPipTargetPath);
-    }
+  //   // 删除临时文件
+  //   if (fs.existsSync(getPipTargetPath)) {
+  //     fs.unlinkSync(getPipTargetPath);
+  //   }
     
-    // 验证 pip 是否安装成功
-    const pipAvailable = await this.isPipAvailable(this.embeddedPythonPath);
-    if (!pipAvailable) {
-      throw new Error('pip 安装失败，无法使用 pip 命令');
-    }
+  //   // 验证 pip 是否安装成功
+  //   const pipAvailable = await this.isPipAvailable(this.embeddedPythonPath);
+  //   if (!pipAvailable) {
+  //     throw new Error('pip 安装失败，无法使用 pip 命令');
+  //   }
     
-    this.emit('pip-ready', { message: 'pip 安装成功' });
-  }
+  //   this.emit('pip-ready', { message: 'pip 安装成功' });
+  // }
 
   /**
    * 检查 Python 命令是否有效
