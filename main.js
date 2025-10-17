@@ -201,12 +201,49 @@ function setupIpcHandlers() {
     return app.getVersion();
   });
 
-  // 脚本下载
-  ipcMain.handle('download-and-unzip-script', async () => {
+
+  // 更新订阅脚本 - 接收渲染进程传来的脚本数据并下载
+  ipcMain.handle('update-subscribed-scripts', async (_, scriptsData) => {
     try {
-      return await scriptManager.downloadAndUnzipScript();
+      // 直接传递脚本数据给 scriptManager
+      const result = await scriptManager.updateSubscribedScripts(scriptsData);
+      return result;
     } catch (error) {
-      throw new Error(`下载脚本失败: ${error.message}`);
+      throw new Error(`更新订阅脚本失败: ${error.message}`);
+    }
+  });
+
+  // 获取脚本元数据
+  ipcMain.handle('get-scripts-metadata', () => {
+    try {
+      return scriptManager.getScriptsMetadata();
+    } catch (error) {
+      throw new Error(`获取脚本元数据失败: ${error.message}`);
+    }
+  });
+
+  // 监听脚本管理器事件并转发到渲染进程
+  scriptManager.on('scriptDownloaded', (data) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('script-downloaded', data);
+    }
+  });
+
+  scriptManager.on('scriptDownloadError', (data) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('script-download-error', data);
+    }
+  });
+
+  scriptManager.on('updateComplete', (data) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('script-update-complete', data);
+    }
+  });
+
+  scriptManager.on('updateError', (data) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('script-update-error', data);
     }
   });
 }

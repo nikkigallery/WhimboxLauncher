@@ -418,6 +418,20 @@ class APIClient {
     }
     return null;
   }
+
+  /**
+   * 获取所有订阅的脚本
+   * @returns {Promise<object>} 订阅的脚本列表
+   */
+  async getAllSubscribedScripts() {
+    try {
+      const response = await this.get('/whimbox/scripts/all_subscribed', null, true);
+      return response;
+    } catch (error) {
+      console.error('获取订阅脚本失败:', error);
+      throw error;
+    }
+  }
 }
 
 // 创建全局 API 客户端实例
