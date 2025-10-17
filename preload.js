@@ -68,8 +68,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchApp: () => ipcRenderer.invoke('launch-app'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   
-  // 脚本下载
-  downloadAndUnzipScript: () => ipcRenderer.invoke('download-and-unzip-script'),
+
+  // 脚本订阅管理
+  updateSubscribedScripts: (scriptsData) => ipcRenderer.invoke('update-subscribed-scripts', scriptsData),
+  getScriptsMetadata: () => ipcRenderer.invoke('get-scripts-metadata'),
 
   // 事件监听
   onDownloadProgress: (callback) => {
@@ -86,5 +88,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onLaunchAppEnd: (callback) => {
     ipcRenderer.on('launch-app-end', (_, data) => callback(data));
+  },
+  onScriptDownloaded: (callback) => {
+    ipcRenderer.on('script-downloaded', (_, data) => callback(data));
+  },
+  onScriptDownloadError: (callback) => {
+    ipcRenderer.on('script-download-error', (_, data) => callback(data));
+  },
+  onScriptUpdateComplete: (callback) => {
+    ipcRenderer.on('script-update-complete', (_, data) => callback(data));
+  },
+  onScriptUpdateError: (callback) => {
+    ipcRenderer.on('script-update-error', (_, data) => callback(data));
   },
 });

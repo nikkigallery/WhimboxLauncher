@@ -347,6 +347,7 @@ window.addEventListener('user-login-success', async () => {
   api.mylogger.log('登录成功，重新检查更新状态...');
   appState.isLogin = true;
   await checkState();
+  await checkSubscribedScripts();
 });
 
 // 监听退出登录事件
@@ -354,6 +355,29 @@ window.addEventListener('user-logout', async () => {
   api.mylogger.log('退出登录，重置状态...');
   appState.isLogin = false;
   await checkState();
+});
+
+// 监听脚本下载进度
+api.onScriptDownloaded((data) => {
+  const percent = Math.round((data.current / data.total) * 100);
+  showProgress(`更新订阅路线: ${data.name}`, percent);
+});
+
+// 监听脚本下载错误
+api.onScriptDownloadError((data) => {
+  api.mylogger.error(`脚本 ${data.name} 下载失败:`, data.error);
+});
+
+// 监听脚本更新完成
+api.onScriptUpdateComplete((data) => {
+  api.mylogger.log(`脚本更新完成: 成功 ${data.successCount}/${data.totalCount}`);
+  hideProgress();
+});
+
+// 监听脚本更新错误
+api.onScriptUpdateError((data) => {
+  api.mylogger.error('脚本更新错误:', data.error);
+  hideProgress();
 });
 
 // ==================== 初始化 ====================
@@ -377,6 +401,7 @@ async function initialize() {
   appState.isLogin = updateUserUI();
 
   await checkState();
+  await checkSubscribedScripts();
 }
   
 
@@ -435,15 +460,39 @@ async function checkState(){
       elements.updateStatus.textContent = '有手动更新包';
     }
   }
-  
-  // 下载脚本
-  const scriptResult = await api.downloadAndUnzipScript();
-  if (scriptResult.success) {
-    api.mylogger.log('脚本下载成功:', scriptResult.message);
-  } else {
-    api.mylogger.error('脚本下载失败:', scriptResult.message);
-  }
 
+  updateMainButton();
+}
+
+async function checkSubscribedScripts() {
+  // 更新订阅脚本
+  updateButtonState('disabled', '更新订阅路线...');
+  if (appState.isLogin) {
+    try {
+      api.mylogger.log('开始更新订阅路线...');
+      showProgress('获取订阅路线列表...', 0);
+      
+      // 1. 调用API获取订阅脚本列表
+      const scriptsData = await apiClient.getAllSubscribedScripts();
+      api.mylogger.debug('获取到订阅路线:', scriptsData);
+      
+      if (scriptsData.scripts && scriptsData.scripts.length > 0) {
+        showProgress('开始更新路线...', 0);
+        
+        // 2. 将数据传递给主进程进行下载
+        await api.updateSubscribedScripts(scriptsData);
+        hideProgress();
+      } else {
+        api.mylogger.log('暂无订阅路线');
+        hideProgress();
+      }
+    } catch (error) {
+      api.mylogger.error('更新路线失败:', error);
+      hideProgress();
+    }
+  } else {
+    api.mylogger.log('未登录，跳过路线更新');
+  }
   updateMainButton();
 }
 

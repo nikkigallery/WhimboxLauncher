@@ -4,6 +4,7 @@ const { app } = require('electron');
 const downloader = require('./downloader');
 const AdmZip = require('adm-zip');
 const { EventEmitter } = require('events');
+const axios = require('axios');
 
 class ScriptManager extends EventEmitter {
   constructor() {
@@ -17,167 +18,167 @@ class ScriptManager extends EventEmitter {
     
     // 脚本目录
     this.scriptsDir = path.join(appDir, 'scripts');
+    this.appDataDir = path.join(appDir, 'app-data');
+    this.scriptsIndexJsonPath = path.join(this.appDataDir, 'scripts-index.json');
     
     // 确保目录存在
     if (!fs.existsSync(this.scriptsDir)) {
       fs.mkdirSync(this.scriptsDir, { recursive: true });
     }
-    
-    // 脚本包下载URL
-    this.scriptsUrl = 'https://nikkigallery.vip/static/whimbox/scripts/scripts-0.0.1.zip';
-  }
-
-  /**
-   * 检查scripts目录是否为空
-   * @returns {boolean} 是否为空
-   */
-  isScriptsDirectoryEmpty() {
-    try {
-      const files = fs.readdirSync(this.scriptsDir);
-      // 过滤掉隐藏文件（如 .gitkeep）
-      const visibleFiles = files.filter(file => !file.startsWith('.'));
-      return visibleFiles.length === 0;
-    } catch (error) {
-      console.error('检查scripts目录失败:', error);
-      return true;
+    if (!fs.existsSync(this.appDataDir)) {
+      fs.mkdirSync(this.appDataDir, { recursive: true });
     }
   }
 
   /**
-   * 解压zip文件到指定目录
-   * @param {string} zipPath - zip文件路径
-   * @param {string} targetDir - 目标目录
-   * @returns {Promise<void>}
+   * 更新订阅的脚本
+   * @param {Object} scriptsData - 订阅脚本数据 { scripts: [{ name, md5 }] }
+   * @returns {Promise<Object>} 更新结果
    */
-  async extractZip(zipPath, targetDir) {
+  async updateSubscribedScripts(scriptsData) {
     try {
-      const zip = new AdmZip(zipPath);
+      console.log('开始更新订阅脚本...');
       
-      // 获取压缩包中的所有文件
-      const zipEntries = zip.getEntries();
-      const totalFiles = zipEntries.length;
-      let extractedFiles = 0;
-      
-      // 解压文件
-      zip.extractAllTo(targetDir, true);
-      
-      // 发出解压进度事件
-      zipEntries.forEach(() => {
-        extractedFiles++;
-        const progress = Math.round((extractedFiles / totalFiles) * 100);
-        this.emit('extract-progress', {
-          progress,
-          extracted: extractedFiles,
-          total: totalFiles
-        });
-      });
-      
-      this.emit('extract-complete', {
-        targetDir
-      });
-      
-      console.log(`成功解压 ${totalFiles} 个文件到 ${targetDir}`);
-    } catch (error) {
-      this.emit('extract-error', {
-        error: error.message
-      });
-      throw new Error(`解压文件失败: ${error.message}`);
-    }
-  }
-
-  /**
-   * 下载并解压脚本包
-   * @returns {Promise<Object>} 操作结果
-   */
-  async downloadAndUnzipScript() {
-    try {
-      // 检查scripts目录是否为空
-      if (!this.isScriptsDirectoryEmpty()) {
-        console.log('scripts目录不为空，跳过下载');
-        return {
-          success: true,
-          skipped: true,
-          message: 'scripts目录已存在文件，跳过下载'
-        };
+      // 1. 验证数据格式
+      if (!scriptsData || !scriptsData.scripts || !Array.isArray(scriptsData.scripts)) {
+        throw new Error('返回的脚本列表格式不正确');
       }
       
-      console.log('scripts目录为空，开始下载脚本包...');
+      const scripts = scriptsData.scripts;
+      console.log(`获取到 ${scripts.length} 个订阅脚本`);
       
-      // 发出开始下载事件
-      this.emit('download-start', {
-        url: this.scriptsUrl
-      });
-      
-      // 从URL中提取文件名
-      const fileName = path.basename(new URL(this.scriptsUrl).pathname);
-      
-      // 设置下载进度监听
-      downloader.on('progress', (data) => {
-        if (data.fileName === fileName) {
-          this.emit('download-progress', data);
+      // 2. 读取现有的 index.json
+      let existingIndex = {};
+      if (fs.existsSync(this.scriptsIndexJsonPath)) {
+        try {
+          const content = fs.readFileSync(this.scriptsIndexJsonPath, 'utf8');
+          existingIndex = JSON.parse(content);
+        } catch (error) {
+          console.warn('读取 index.json 失败，将创建新的索引:', error);
+          existingIndex = {};
         }
-      });
+      }
       
-      downloader.on('complete', (data) => {
-        if (data.fileName === fileName) {
-          this.emit('download-complete', data);
+      // 3. 下载所有脚本
+      const newIndex = {};
+      let successCount = 0;
+      let failedCount = 0;
+      
+      for (let i = 0; i < scripts.length; i++) {
+        const script = scripts[i];
+        try {
+          console.log(`正在处理脚本 ${i + 1}/${scripts.length}: ${script.name} (MD5: ${script.md5})`);
+          
+          // 下载脚本文件
+          const url = `https://nikkigallery.vip/static/whimbox/scripts/${script.md5}.json`;
+          const fileName = `${script.md5}.json`;
+          const filePath = path.join(this.scriptsDir, fileName);
+          
+          let needDownload = true;
+          if (fs.existsSync(filePath)) {
+            console.log(`脚本文件 ${fileName} 已存在，跳过下载`);
+            needDownload = false;
+          }
+          
+          if (needDownload) {
+            // 使用axios下载文件
+            const fileResponse = await axios.get(url, {
+              responseType: 'arraybuffer',
+              timeout: 30000
+            });
+
+            // 保存文件
+            fs.writeFileSync(filePath, fileResponse.data);
+            console.log(`脚本文件 ${fileName} 下载成功`);
+          }
+          
+          // 读取并解析脚本文件，获取真实的脚本名
+          let scriptName = script.name; // 默认使用API返回的名称
+          try {
+            const scriptContent = fs.readFileSync(filePath, 'utf8');
+            const scriptJson = JSON.parse(scriptContent);
+            if (scriptJson.info && scriptJson.info.name) {
+              scriptName = scriptJson.info.name;
+              console.log(`从脚本文件中读取到脚本名: ${scriptName}`);
+            }
+          } catch (error) {
+            console.warn(`解析脚本文件失败，使用默认名称: ${scriptName}`, error);
+          }
+          
+          // 检查是否有同名的旧脚本
+          if (existingIndex[scriptName] && existingIndex[scriptName] !== script.md5) {
+            const oldMd5 = existingIndex[scriptName];
+            const oldFilePath = path.join(this.scriptsDir, `${oldMd5}.json`);
+            if (fs.existsSync(oldFilePath)) {
+              fs.unlinkSync(oldFilePath);
+              console.log(`删除旧脚本: ${scriptName} (${oldMd5})`);
+            }
+          }
+          
+          // 更新索引: {脚本名: 脚本md5}
+          newIndex[scriptName] = script.md5;
+          successCount++;
+          
+          // 发出进度事件
+          this.emit('scriptDownloaded', {
+            name: scriptName,
+            md5: script.md5,
+            current: i + 1,
+            total: scripts.length
+          });
+          
+        } catch (error) {
+          console.error(`处理脚本 ${script.name} 失败:`, error);
+          failedCount++;
+          // 继续下载其他脚本
+          this.emit('scriptDownloadError', {
+            name: script.name,
+            md5: script.md5,
+            error: error.message
+          });
         }
+      }
+      
+      // 4. 保存新的 index.json
+      fs.writeFileSync(this.scriptsIndexJsonPath, JSON.stringify(newIndex, null, 2), 'utf8');
+      
+      console.log(`订阅脚本更新完成，成功 ${successCount}/${scripts.length} 个脚本`);
+      
+      // 发出完成事件
+      this.emit('updateComplete', {
+        totalCount: scripts.length,
+        successCount: successCount,
+        failedCount: failedCount
       });
-      
-      // 下载脚本压缩包
-      const zipPath = await downloader.downloadFile(this.scriptsUrl, fileName);
-      
-      console.log(`脚本包下载完成: ${zipPath}`);
-      
-      // 发出开始解压事件
-      this.emit('extract-start', {
-        zipPath,
-        targetDir: this.scriptsDir
-      });
-      
-      // 解压到scripts目录
-      await this.extractZip(zipPath, this.scriptsDir);
-      
-      console.log('脚本包解压完成');
-      
-      // 删除压缩包
-      fs.unlinkSync(zipPath);
-      console.log('已删除临时压缩包');
       
       return {
         success: true,
-        skipped: false,
-        message: '脚本包下载并解压成功'
+        totalCount: scripts.length,
+        successCount: successCount,
+        failedCount: failedCount
       };
+      
     } catch (error) {
-      this.emit('error', {
-        error: error.message
-      });
-      throw new Error(`下载并解压脚本包失败: ${error.message}`);
+      console.error('更新订阅脚本失败:', error);
+      this.emit('updateError', { error: error.message });
+      throw new Error(`更新订阅脚本失败: ${error.message}`);
     }
   }
 
   /**
-   * 获取脚本目录路径
-   * @returns {string} 脚本目录路径
+   * 获取脚本元数据
+   * @returns {object|null} 脚本元数据
    */
-  getScriptsDirectory() {
-    return this.scriptsDir;
-  }
-
-  /**
-   * 列出所有可用的脚本文件
-   * @returns {Array<string>} 脚本文件列表
-   */
-  listScripts() {
+  getScriptsMetadata() {
     try {
-      const files = fs.readdirSync(this.scriptsDir);
-      // 过滤出Python脚本文件
-      return files.filter(file => file.endsWith('.py'));
+      if (fs.existsSync(this.scriptsIndexJsonPath)) {
+        const content = fs.readFileSync(this.scriptsIndexJsonPath, 'utf8');
+        return JSON.parse(content);
+      }
     } catch (error) {
-      console.error('列出脚本文件失败:', error);
-      return [];
+      console.error('读取脚本元数据失败:', error);
     }
+    return null;
   }
 
   /**
