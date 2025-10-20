@@ -322,6 +322,47 @@ class APIClient {
   }
 
   /**
+   * 使用refresh_token登录
+   * @param {string} refreshToken - 刷新令牌
+   * @returns {Promise<object>} 用户信息
+   */
+  async loginWithRefreshToken(refreshToken) {
+    try {
+      // 先设置refresh_token
+      this.userManager.refreshToken = refreshToken;
+      
+      // 使用refresh_token获取新的access_token
+      const refreshed = await this.refreshAccessToken();
+      if (!refreshed) {
+        throw new Error('未获取到登录凭证，请重试');
+      }
+      
+      // 获取用户信息
+      const userData = await this.request('/user/0', {
+        method: 'GET',
+        requireAuth: true
+      });
+      
+      // 更新用户信息
+      this.userManager.user = {
+        id: userData.id,
+        username: userData.username,
+        avatar: userData.avatar,
+      };
+      this.userManager.saveUserToStorage();
+      
+      return {
+        user: this.userManager.user,
+        access_token: this.userManager.accessToken,
+        refresh_token: this.userManager.refreshToken
+      };
+    } catch (error) {
+      console.error('使用refresh_token登录失败:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 用户登出
    */
   logout() {

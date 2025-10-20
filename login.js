@@ -8,8 +8,6 @@ const loginElements = {
   loginClose: document.getElementById('login-close'),
   loginCancel: document.getElementById('login-cancel'),
   loginSubmit: document.getElementById('login-submit'),
-  email: document.getElementById('email'),
-  password: document.getElementById('password'),
   loginWx: document.getElementById('login-wx'),
   registerBtn: document.getElementById('register-btn')
 };
@@ -99,7 +97,6 @@ const userElements = {
   userMenu: document.getElementById('user-menu'),
   userMenuAvatar: document.getElementById('user-menu-avatar'),
   userMenuName: document.getElementById('user-menu-name'),
-  userMenuEmail: document.getElementById('user-menu-email'),
   userMenuLogout: document.getElementById('user-menu-logout')
 };
 
@@ -117,68 +114,37 @@ export function closeLoginModal() {
   loginElements.loginModal.classList.remove('show');
 }
 
-/**
- * 清空登录表单
- */
-function clearLoginForm() {
-  loginElements.email.value = '';
-  loginElements.password.value = '';
-}
 
 /**
- * 邮箱登录处理
+ * 外部浏览器登录处理
  */
-async function handleEmailLogin() {
-  const email = loginElements.email.value.trim();
-  const password = loginElements.password.value;
-  
-  // 表单验证
-  if (!email) {
-    customAlert('请输入邮箱地址');
-    setTimeout(() => loginElements.email.focus(), 100);
-    return;
-  }
-  
-  if (!password) {
-    customAlert('请输入密码');
-    setTimeout(() => loginElements.password.focus(), 100);
-    return;
-  }
-  
-  // 简单的邮箱格式验证
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    customAlert('请输入有效的邮箱地址');
-    setTimeout(() => loginElements.email.focus(), 100);
-    return;
-  }
-  
+async function handleExternalLogin() {
   try {
-    // 禁用提交按钮，防止重复提交
-    loginElements.loginSubmit.disabled = true;
-    loginElements.loginSubmit.textContent = '登录中...';
     
-    // 调用登录 API
-    const userData = await apiClient.login(email, password);
-    
-    console.log('登录成功:', userData);
-    
-    // 登录成功后清空表单
-    clearLoginForm();
-    closeLoginModal();
-    
-    // 触发登录成功事件
-    window.dispatchEvent(new CustomEvent('user-login-success', { 
-      detail: userData 
-    }));
-  } catch (error) {
-    console.error('登录失败:', error);
-    if (error.message.includes('400')) {
-      customAlert('邮箱或密码错误');
-    }else{
-      customAlert('登录失败: ' + error.message);
+    // 获取认证服务器端口
+    const api = window.electronAPI;
+    if (api && api.openExternal && api.getAuthPort) {
+      const authPort = await api.getAuthPort();
+      
+      if (!authPort) {
+        throw new Error('认证服务器未启动');
+      }
+      
+      // 构建登录URL，包含回调地址
+      const loginUrl = `https://nikkigallery.vip/whimbox?login_redirect_uri=http://localhost:${authPort}/auth/callback`;
+      
+      // 跳转到外部浏览器进行登录
+      api.openExternal(loginUrl);
+      
+      // 关闭登录弹窗
+      closeLoginModal();
+    } else {
+      throw new Error('无法打开外部浏览器或获取认证端口');
     }
-  } finally {
+  } catch (error) {
+    console.error('跳转登录失败:', error);
+    customAlert('跳转登录失败: ' + error.message);
+    
     // 恢复提交按钮
     loginElements.loginSubmit.disabled = false;
     loginElements.loginSubmit.textContent = '登录';
@@ -242,7 +208,6 @@ export function updateUserUI() {
     userElements.userMenuAvatar.src = avatarUrl;
     userElements.userMenuAvatar.alt = user.username;
     userElements.userMenuName.textContent = user.username;
-    userElements.userMenuEmail.textContent = user.email;
 
     return true;
   } else {
@@ -268,6 +233,39 @@ function toggleUserMenu() {
     const rect = userElements.userAvatarBtn.getBoundingClientRect();
     userElements.userMenu.style.top = `${rect.bottom + 5}px`;
     userElements.userMenu.style.right = `${window.innerWidth - rect.right}px`;
+  }
+}
+
+/**
+ * 处理协议回调，获取refresh_token
+ */
+async function handleAuthCallback(data) {
+  try {
+    const { refreshToken } = data;
+    
+    if (!refreshToken) {
+      console.error('未收到refresh_token');
+      customAlert('登录失败：未收到有效的登录信息');
+      return;
+    }
+    
+    console.log('收到refresh_token:', refreshToken);
+    
+    // 使用refresh_token获取用户信息
+    const userData = await apiClient.loginWithRefreshToken(refreshToken);
+    
+    console.log('登录成功:', userData);
+    
+    // 触发登录成功事件
+    window.dispatchEvent(new CustomEvent('user-login-success', { 
+      detail: userData 
+    }));
+    
+    customAlert('登录成功！');
+    
+  } catch (error) {
+    console.error('处理登录回调失败:', error);
+    customAlert('登录失败: ' + error.message);
   }
 }
 
@@ -303,27 +301,14 @@ export function initLoginModule() {
 //     }
 //   });
   
-  // 邮箱登录提交
-  loginElements.loginSubmit.addEventListener('click', handleEmailLogin);
+  // 外部浏览器登录提交
+  loginElements.loginSubmit.addEventListener('click', handleExternalLogin);
   
   // 微信登录
   loginElements.loginWx.addEventListener('click', handleWechatLogin);
   
   // 注册按钮
   loginElements.registerBtn.addEventListener('click', handleRegister);
-  
-  // 支持回车键提交
-  loginElements.email.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      loginElements.password.focus();
-    }
-  });
-  
-  loginElements.password.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      loginElements.loginSubmit.click();
-    }
-  });
   
   // === 用户界面事件 ===
   
@@ -353,6 +338,12 @@ export function initLoginModule() {
   window.addEventListener('user-login-success', () => {
     updateUserUI();
   });
+  
+  // 监听协议回调事件
+  const api = window.electronAPI;
+  if (api && api.onAuthCallback) {
+    api.onAuthCallback(handleAuthCallback);
+  }
   
   console.log('登录模块已初始化');
 }

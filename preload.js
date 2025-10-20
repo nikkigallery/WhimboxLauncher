@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeWindow: () => ipcRenderer.send('close-window'),
   openExternal: (url) => ipcRenderer.send('open-external', url),
   
+  // 认证服务器
+  getAuthPort: () => ipcRenderer.invoke('get-auth-port'),
+  
   // Python环境
   detectPythonEnvironment: () => ipcRenderer.invoke('detect-python'),
   setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
@@ -100,5 +103,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onScriptUpdateError: (callback) => {
     ipcRenderer.on('script-update-error', (_, data) => callback(data));
+  },
+  onAuthCallback: (callback) => {
+    ipcRenderer.on('auth-callback', (_, data) => callback(data));
   },
 });
