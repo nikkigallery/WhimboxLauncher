@@ -673,24 +673,43 @@
         line-height: 1.6;
         margin-bottom: 20px;
         text-align: center;
+        white-space: pre-line;
+      }
+      
+      .custom-alert-buttons {
+        display: flex;
+        gap: 10px;
+        width: 100%;
       }
       
       .custom-alert-button {
-        width: 100%;
+        flex: 1;
         padding: 12px;
         border: none;
         border-radius: 10px;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
         font-size: 14px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s;
       }
       
-      .custom-alert-button:hover {
+      .custom-alert-confirm {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+      }
+      
+      .custom-alert-cancel {
+        background: rgba(0, 0, 0, 0.05);
+        color: #666;
+      }
+      
+      .custom-alert-confirm:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+      }
+      
+      .custom-alert-cancel:hover {
+        background: rgba(0, 0, 0, 0.1);
       }
       
       .custom-alert-button:active {
@@ -726,8 +745,7 @@
           <div class="announcement-title">📢 最新公告</div>
           <div class="announcement-list" id="announcement-list">
             <div class="announcement-item">
-              <div class="announcement-item-title">欢迎使用奇想盒</div>
-              <div class="announcement-item-date">2025/10/10</div>
+              <div class="announcement-item-title">加载中...</div>
             </div>
           </div>
         </div>
@@ -821,7 +839,10 @@
     <div class="custom-alert-overlay" id="custom-alert-overlay">
       <div class="custom-alert">
         <div class="custom-alert-message" id="custom-alert-message"></div>
-        <button class="custom-alert-button" id="custom-alert-button">确定</button>
+        <div class="custom-alert-buttons" id="custom-alert-buttons">
+          <button class="custom-alert-button custom-alert-cancel" id="custom-alert-cancel-button" style="display: none;">取消</button>
+          <button class="custom-alert-button custom-alert-confirm" id="custom-alert-confirm-button">确定</button>
+        </div>
       </div>
     </div>
 

@@ -18,24 +18,77 @@ const loginElements = {
 const alertElements = {
   overlay: document.getElementById('custom-alert-overlay'),
   message: document.getElementById('custom-alert-message'),
-  button: document.getElementById('custom-alert-button')
+  buttons: document.getElementById('custom-alert-buttons'),
+  cancelButton: document.getElementById('custom-alert-cancel-button'),
+  confirmButton: document.getElementById('custom-alert-confirm-button')
 };
 
 /**
  * 自定义 alert 函数（非阻塞）
  * @param {string} message - 提示消息
+ * @param {object} options - 选项配置
+ * @param {function} options.onConfirm - 确认回调函数（可选）
+ * @param {function} options.onCancel - 取消回调函数（可选）
+ * @param {boolean} options.showCancel - 是否显示取消按钮（默认false）
+ * @param {string} options.confirmText - 确认按钮文字（默认"确定"）
+ * @param {string} options.cancelText - 取消按钮文字（默认"取消"）
  */
-export function customAlert(message) {
+export function customAlert(message, options = {}) {
+  const {
+    onConfirm = null,
+    onCancel = null,
+    showCancel = false,
+    confirmText = '确定',
+    cancelText = '取消'
+  } = options;
+  
+  // 设置消息内容
   alertElements.message.textContent = message;
+  
+  // 设置按钮文字
+  alertElements.confirmButton.textContent = confirmText;
+  alertElements.cancelButton.textContent = cancelText;
+  
+  // 控制取消按钮显示
+  if (showCancel) {
+    alertElements.cancelButton.style.display = 'block';
+  } else {
+    alertElements.cancelButton.style.display = 'none';
+  }
+  
+  // 显示弹框
   alertElements.overlay.classList.add('show');
   
-  // 确保按钮可以关闭提示框
+  // 清理之前的事件监听器
+  const newConfirmButton = alertElements.confirmButton.cloneNode(true);
+  const newCancelButton = alertElements.cancelButton.cloneNode(true);
+  alertElements.confirmButton.parentNode.replaceChild(newConfirmButton, alertElements.confirmButton);
+  alertElements.cancelButton.parentNode.replaceChild(newCancelButton, alertElements.cancelButton);
+  
+  // 更新元素引用
+  alertElements.confirmButton = newConfirmButton;
+  alertElements.cancelButton = newCancelButton;
+  
+  // 关闭弹框的函数
   const closeAlert = () => {
     alertElements.overlay.classList.remove('show');
-    alertElements.button.removeEventListener('click', closeAlert);
   };
   
-  alertElements.button.addEventListener('click', closeAlert);
+  // 确认按钮事件
+  alertElements.confirmButton.addEventListener('click', () => {
+    closeAlert();
+    if (onConfirm && typeof onConfirm === 'function') {
+      onConfirm();
+    }
+  });
+  
+  // 取消按钮事件
+  alertElements.cancelButton.addEventListener('click', () => {
+    closeAlert();
+    if (onCancel && typeof onCancel === 'function') {
+      onCancel();
+    }
+  });
 }
 
 // 用户界面元素

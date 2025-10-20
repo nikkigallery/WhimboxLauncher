@@ -47,7 +47,7 @@ class ScriptManager extends EventEmitter {
       const scripts = scriptsData.scripts;
       console.log(`获取到 ${scripts.length} 个订阅脚本`);
       
-      // 2. 读取现有的 index.json
+      // 2. 读取现有的 scripts-index.json
       let existingIndex = {};
       if (fs.existsSync(this.scriptsIndexJsonPath)) {
         try {
@@ -57,9 +57,39 @@ class ScriptManager extends EventEmitter {
           console.warn('读取 index.json 失败，将创建新的索引:', error);
           existingIndex = {};
         }
+      } else {
+        // 如果索引文件不存在，从scripts目录生成索引
+        console.log('scripts-index.json 不存在，正在从scripts目录生成索引...');
+        existingIndex = this.generateIndexFromScriptsDir();
       }
       
-      // 3. 下载所有脚本
+      // 3. 检测并删除退订的脚本
+      const currentMd5Set = new Set(scripts.map(script => script.md5));
+      const existingMd5Set = new Set(Object.values(existingIndex));
+      const unsubscribedMd5s = [...existingMd5Set].filter(md5 => !currentMd5Set.has(md5));
+      
+      if (unsubscribedMd5s.length > 0) {
+        console.log(`检测到 ${unsubscribedMd5s.length} 个退订的脚本，正在删除...`);
+        for (const md5 of unsubscribedMd5s) {
+          try {
+            const filePath = path.join(this.scriptsDir, `${md5}.json`);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`已删除退订脚本: ${md5}.json`);
+              
+              // 发出退订脚本删除事件
+              this.emit('scriptUnsubscribed', {
+                md5: md5,
+                fileName: `${md5}.json`
+              });
+            }
+          } catch (error) {
+            console.error(`删除退订脚本 ${md5}.json 失败:`, error);
+          }
+        }
+      }
+      
+      // 4. 下载所有脚本
       const newIndex = {};
       let successCount = 0;
       let failedCount = 0;
@@ -139,23 +169,25 @@ class ScriptManager extends EventEmitter {
         }
       }
       
-      // 4. 保存新的 index.json
+      // 5. 保存新的 index.json
       fs.writeFileSync(this.scriptsIndexJsonPath, JSON.stringify(newIndex, null, 2), 'utf8');
       
-      console.log(`订阅脚本更新完成，成功 ${successCount}/${scripts.length} 个脚本`);
+      console.log(`订阅脚本更新完成，成功 ${successCount}/${scripts.length} 个脚本，删除 ${unsubscribedMd5s.length} 个退订脚本`);
       
       // 发出完成事件
       this.emit('updateComplete', {
         totalCount: scripts.length,
         successCount: successCount,
-        failedCount: failedCount
+        failedCount: failedCount,
+        unsubscribedCount: unsubscribedMd5s.length
       });
       
       return {
         success: true,
         totalCount: scripts.length,
         successCount: successCount,
-        failedCount: failedCount
+        failedCount: failedCount,
+        unsubscribedCount: unsubscribedMd5s.length
       };
       
     } catch (error) {
@@ -163,6 +195,71 @@ class ScriptManager extends EventEmitter {
       this.emit('updateError', { error: error.message });
       throw new Error(`更新订阅脚本失败: ${error.message}`);
     }
+  }
+
+  /**
+   * 验证字符串是否为MD5格式
+   * @param {string} str - 要验证的字符串
+   * @returns {boolean} 是否为MD5格式
+   */
+  isValidMD5(str) {
+    // MD5是32位十六进制字符串
+    return /^[a-f0-9]{32}$/i.test(str);
+  }
+
+  /**
+   * 从scripts目录生成索引
+   * @returns {object} 生成的索引对象 {脚本名: MD5}
+   */
+  generateIndexFromScriptsDir() {
+    const index = {};
+    
+    try {
+      if (!fs.existsSync(this.scriptsDir)) {
+        console.log('scripts目录不存在，返回空索引');
+        return index;
+      }
+      
+      const files = fs.readdirSync(this.scriptsDir);
+      const jsonFiles = files.filter(file => file.endsWith('.json'));
+      
+      console.log(`在scripts目录中找到 ${jsonFiles.length} 个JSON文件`);
+      
+      for (const file of jsonFiles) {
+        try {
+          // 从文件名提取MD5（去掉.json后缀）
+          const md5 = file.replace('.json', '');
+          
+          // 只处理MD5格式的文件名
+          if (!this.isValidMD5(md5)) {
+            console.log(`跳过非MD5格式文件: ${file}`);
+            continue;
+          }
+          
+          const filePath = path.join(this.scriptsDir, file);
+          const content = fs.readFileSync(filePath, 'utf8');
+          const scriptJson = JSON.parse(content);
+          
+          // 获取脚本名称
+          if (scriptJson.info && scriptJson.info.name) {
+            const scriptName = scriptJson.info.name;
+            index[scriptName] = md5;
+            console.log(`生成索引: ${scriptName} -> ${md5}`);
+          } else {
+            console.warn(`脚本文件 ${file} 缺少info.name字段，跳过`);
+          }
+        } catch (error) {
+          console.warn(`解析脚本文件 ${file} 失败:`, error);
+        }
+      }
+      
+      console.log(`从scripts目录生成了包含 ${Object.keys(index).length} 个脚本的索引`);
+      
+    } catch (error) {
+      console.error('从scripts目录生成索引失败:', error);
+    }
+    
+    return index;
   }
 
   /**

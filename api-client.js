@@ -432,6 +432,34 @@ class APIClient {
       throw error;
     }
   }
+
+  /**
+   * 获取公告列表
+   * @returns {Promise<object>} 公告列表
+   */
+  async getAnnouncements() {
+    try {
+      const response = await this.get('/whimbox/launcher/announcements', null, false);
+      return response;
+    } catch (error) {
+      console.error('获取公告失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取启动器最新版本信息
+   * @returns {Promise<object>} 启动器版本信息
+   */
+  async getLauncherLatestVersion() {
+    try {
+      const response = await this.get('/whimbox/launcher/latest', null, false);
+      return response;
+    } catch (error) {
+      console.error('获取启动器最新版本失败:', error);
+      throw error;
+    }
+  }
 }
 
 // 创建全局 API 客户端实例
