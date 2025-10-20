@@ -47,7 +47,7 @@ class ScriptManager extends EventEmitter {
       const scripts = scriptsData.scripts;
       console.log(`获取到 ${scripts.length} 个订阅脚本`);
       
-      // 2. 读取现有的 index.json
+      // 2. 读取现有的 scripts-index.json
       let existingIndex = {};
       if (fs.existsSync(this.scriptsIndexJsonPath)) {
         try {

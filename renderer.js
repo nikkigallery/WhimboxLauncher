@@ -85,6 +85,62 @@ elements.launchBtn.addEventListener('click', async () => {
 });
 
 // ==================== 工具函数 ====================
+
+/**
+ * 获取并显示公告
+ */
+async function loadAnnouncements() {
+  try {
+    const response = await apiClient.getAnnouncements();
+    const announcements = response.announcements || [];
+    
+    // 清空现有公告
+    elements.announcementList.innerHTML = '';
+    
+    if (announcements.length === 0) {
+      elements.announcementList.innerHTML = '<div class="announcement-item"><div class="announcement-item-title">暂无公告</div></div>';
+      return;
+    }
+    
+    // 按创建时间倒序排列（最新的在前）
+    announcements.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    // 渲染公告列表
+    announcements.forEach(announcement => {
+      const announcementItem = document.createElement('div');
+      announcementItem.className = 'announcement-item';
+      
+      // 格式化日期
+      const date = new Date(announcement.created_at);
+      const formattedDate = date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      
+      announcementItem.innerHTML = `
+        <div class="announcement-item-title">${announcement.title}</div>
+        <div class="announcement-item-date">${formattedDate}</div>
+      `;
+      
+      // 如果有URL，添加点击事件
+      if (announcement.url) {
+        announcementItem.style.cursor = 'pointer';
+        announcementItem.addEventListener('click', () => {
+          api.openExternal(announcement.url);
+        });
+      }
+      
+      elements.announcementList.appendChild(announcementItem);
+    });
+    
+    api.mylogger.log('公告加载完成:', announcements.length);
+  } catch (error) {
+    api.mylogger.error('加载公告失败:', error);
+    elements.announcementList.innerHTML = '<div class="announcement-item"><div class="announcement-item-title">加载公告失败</div></div>';
+  }
+}
+
 /**
  * 检查应用更新
  * @returns {Promise<object>} 更新检测结果
@@ -400,6 +456,12 @@ async function initialize() {
   // 检查并更新用户登录状态
   appState.isLogin = updateUserUI();
 
+  // 加载公告
+  await loadAnnouncements();
+
+  // 检查启动器更新
+  await checkLauncherUpdate();
+
   await checkState();
   await checkSubscribedScripts();
 }
@@ -494,6 +556,78 @@ async function checkSubscribedScripts() {
     api.mylogger.log('未登录，跳过路线更新');
   }
   updateMainButton();
+}
+
+/**
+ * 比较版本号
+ * @param {string} version1 - 版本号1
+ * @param {string} version2 - 版本号2
+ * @returns {number} 1: version1 > version2, 0: 相等, -1: version1 < version2
+ */
+function compareVersions(version1, version2) {
+  const v1Parts = version1.split('.').map(Number);
+  const v2Parts = version2.split('.').map(Number);
+  
+  const maxLength = Math.max(v1Parts.length, v2Parts.length);
+  
+  for (let i = 0; i < maxLength; i++) {
+    const v1Part = v1Parts[i] || 0;
+    const v2Part = v2Parts[i] || 0;
+    
+    if (v1Part > v2Part) return 1;
+    if (v1Part < v2Part) return -1;
+  }
+  
+  return 0;
+}
+
+// 检查启动器更新
+async function checkLauncherUpdate() {
+  try {
+    api.mylogger.log('检查启动器更新...');
+    
+    // 获取远程最新版本
+    const response = await apiClient.getLauncherLatestVersion();
+    const remoteVersion = response.version.version;
+    const downloadUrl = response.version.download_url;
+    const downloadPassword = response.version.download_password;
+    
+    // 获取当前启动器版本
+    const currentVersion = await api.getAppVersion();
+    
+    api.mylogger.log('版本比较:', {
+      current: currentVersion,
+      remote: remoteVersion
+    });
+    
+    // 比较版本号
+    if (compareVersions(remoteVersion, currentVersion) > 0) {
+      // 有新版本，显示更新提示
+      const updateMessage = `发现启动器有新版本 ${remoteVersion}！\n请前往网盘下载，下载密码：${downloadPassword}`;
+      
+      customAlert(updateMessage, {
+        showCancel: true,
+        confirmText: '前往下载',
+        cancelText: '以后再说',
+        onConfirm: () => {
+          // 用户点击确定后打开下载页面
+          if (downloadUrl) {
+            api.openExternal(downloadUrl);
+          }
+        },
+        onCancel: () => {
+          api.mylogger.log('用户选择稍后更新启动器');
+        }
+      });
+      
+      api.mylogger.log('发现启动器新版本:', remoteVersion);
+    } else {
+      api.mylogger.log('启动器已是最新版本:', currentVersion);
+    }
+  } catch (error) {
+    api.mylogger.error('检查启动器更新失败:', error);
+    // 不显示错误提示，避免影响用户体验
+  }
 }
 
 // 设置背景图
