@@ -2,16 +2,6 @@
 
 import { apiClient } from './api-client.js';
 
-// 登录模块的 DOM 元素
-const loginElements = {
-  loginModal: document.getElementById('login-modal'),
-  loginClose: document.getElementById('login-close'),
-  loginCancel: document.getElementById('login-cancel'),
-  loginSubmit: document.getElementById('login-submit'),
-  loginWx: document.getElementById('login-wx'),
-  registerBtn: document.getElementById('register-btn')
-};
-
 // 自定义提示框元素
 const alertElements = {
   overlay: document.getElementById('custom-alert-overlay'),
@@ -100,20 +90,6 @@ const userElements = {
   userMenuLogout: document.getElementById('user-menu-logout')
 };
 
-/**
- * 打开登录窗口
- */
-export function openLoginModal() {
-  loginElements.loginModal.classList.add('show');
-}
-
-/**
- * 关闭登录窗口
- */
-export function closeLoginModal() {
-  loginElements.loginModal.classList.remove('show');
-}
-
 
 /**
  * 外部浏览器登录处理
@@ -135,51 +111,12 @@ async function handleExternalLogin() {
       
       // 跳转到外部浏览器进行登录
       api.openExternal(loginUrl);
-      
-      // 关闭登录弹窗
-      closeLoginModal();
     } else {
       throw new Error('无法打开外部浏览器或获取认证端口');
     }
   } catch (error) {
     console.error('跳转登录失败:', error);
     customAlert('跳转登录失败: ' + error.message);
-    
-    // 恢复提交按钮
-    loginElements.loginSubmit.disabled = false;
-    loginElements.loginSubmit.textContent = '登录';
-  }
-}
-
-/**
- * 微信登录处理
- */
-async function handleWechatLogin() {
-  try {
-    // TODO: 实现微信登录逻辑
-    console.log('微信登录');
-    
-    // 模拟微信登录
-    // const api = window.electronAPI;
-    // const result = await api.wechatLogin();
-    
-    customAlert('微信登录功能待实现');
-  } catch (error) {
-    console.error('微信登录失败:', error);
-    customAlert('微信登录失败: ' + error.message);
-  }
-}
-
-/**
- * 注册按钮处理
- */
-function handleRegister() {
-  // 使用 electronAPI 打开外部浏览器
-  const api = window.electronAPI;
-  if (api && api.openExternal) {
-    api.openExternal('https://nikkigallery.vip/');
-  } else {
-    console.error('electronAPI.openExternal 不可用');
   }
 }
 
@@ -288,34 +225,10 @@ function handleLogout() {
  * 初始化登录模块
  */
 export function initLoginModule() {
-  // === 登录窗口事件 ===
-  
-  // 关闭按钮事件
-  loginElements.loginClose.addEventListener('click', closeLoginModal);
-  loginElements.loginCancel.addEventListener('click', closeLoginModal);
-  
-//   // 点击遮罩层关闭
-//   loginElements.loginModal.addEventListener('click', (e) => {
-//     if (e.target === loginElements.loginModal) {
-//       closeLoginModal();
-//     }
-//   });
-  
-  // 外部浏览器登录提交
-  loginElements.loginSubmit.addEventListener('click', handleExternalLogin);
-  
-  // 微信登录
-  loginElements.loginWx.addEventListener('click', handleWechatLogin);
-  
-  // 注册按钮
-  loginElements.registerBtn.addEventListener('click', handleRegister);
-  
   // === 用户界面事件 ===
   
-  // 登录按钮
-  userElements.loginBtn.addEventListener('click', () => {
-    openLoginModal();
-  });
+  // 登录按钮 - 直接调用外部登录
+  userElements.loginBtn.addEventListener('click', handleExternalLogin);
   
   // 用户头像按钮
   userElements.userAvatarBtn.addEventListener('click', () => {
