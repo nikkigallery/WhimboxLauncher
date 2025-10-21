@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const http = require('http');
 const logger = require('./logger'); // 引入日志模块（必须在最前面初始化）
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
@@ -8,6 +9,8 @@ const scriptManager = require('./script-manager');
 
 // 主窗口引用
 let mainWindow;
+let authServer = null;
+let authPort = 0;
 
 // 创建主窗口
 const createWindow = () => {
@@ -35,64 +38,146 @@ const createWindow = () => {
   }
 };
 
+// 启动认证服务器
+function startAuthServer() {
+  return new Promise((resolve, reject) => {
+    authServer = http.createServer((req, res) => {
+      const url = new URL(req.url, `http://localhost:${authPort}`);
+      
+      if (url.pathname === '/auth/callback') {
+        const refreshToken = url.searchParams.get('refresh_token');
+        
+        if (refreshToken) {
+          console.log('收到refresh_token:', refreshToken);
+          
+          // 发送refresh_token到渲染进程
+          if (mainWindow) {
+            mainWindow.webContents.send('auth-callback', { refreshToken });
+          }
+          
+          // 返回成功页面
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
+        } else {
+          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Missing refresh_token');
+        }
+      } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Not Found');
+      }
+    });
+    
+    // 尝试从8080端口开始，如果被占用则递增
+    let port = 8080;
+    const tryStart = () => {
+      authServer.listen(port, 'localhost', (err) => {
+        if (err) {
+          if (err.code === 'EADDRINUSE') {
+            port++;
+            if (port < 8090) { // 最多尝试到8089
+              tryStart();
+            } else {
+              reject(new Error('无法找到可用端口'));
+            }
+          } else {
+            reject(err);
+          }
+        } else {
+          authPort = port;
+          console.log(`认证服务器已启动，端口: ${authPort}`);
+          resolve(port);
+        }
+      });
+    };
+    
+    tryStart();
+  });
+}
+
+// 停止认证服务器
+function stopAuthServer() {
+  if (authServer) {
+    authServer.close();
+    authServer = null;
+    authPort = 0;
+    console.log('认证服务器已停止');
+  }
+}
+
 // 应用准备就绪时创建窗口
-app.whenReady().then(() => {
-  createWindow();
-
-  // 设置下载进度事件监听
-  if (mainWindow){
-    downloader.on('progress', (progress) => {
-      mainWindow.webContents.send('download-progress', progress.progress);
-    });
-    
-    // 设置安装进度事件监听
-    pythonManager.on('install-progress', (data) => {
-      mainWindow.webContents.send('install-progress', data.output);
-    });
-    
-    // 设置 Python 环境设置事件监听
-    pythonManager.on('setup-start', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'setup-start', message: data.message });
-    });
-    
-    pythonManager.on('extract-progress', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'extract-progress', message: data.message });
-    });
-    
-    pythonManager.on('extract-complete', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'extract-complete', message: data.message });
-    });
-
-    pythonManager.on('setup-pip', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'setup-pip', message: data.message });
-    });
-
-    pythonManager.on('pip-ready', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'pip-ready', message: data.message });
-    });
-
-    pythonManager.on('setup-complete', (data) => {
-      mainWindow.webContents.send('python-setup', { stage: 'setup-complete', message: data.message });
-    });
-
-    appManager.on('launch-app-end', (data) => {
-      mainWindow.webContents.send('launch-app-end', {message: data.message});
-    });
-
-    appManager.on('launch-app-status', (data) => {
-      mainWindow.webContents.send('launch-app-status', {message: data.message});
-    });
+app.whenReady().then(async () => {
+  // 启动认证服务器
+  try {
+    await startAuthServer();
+  } catch (error) {
+    console.error('启动认证服务器失败:', error);
   }
   
-  // 设置IPC处理程序
-  setupIpcHandlers();
-});
+  createWindow();
+
+    // 设置下载进度事件监听
+    if (mainWindow){
+      downloader.on('progress', (progress) => {
+        mainWindow.webContents.send('download-progress', progress.progress);
+      });
+      
+      // 设置安装进度事件监听
+      pythonManager.on('install-progress', (data) => {
+        mainWindow.webContents.send('install-progress', data.output);
+      });
+      
+      // 设置 Python 环境设置事件监听
+      pythonManager.on('setup-start', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'setup-start', message: data.message });
+      });
+      
+      pythonManager.on('extract-progress', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'extract-progress', message: data.message });
+      });
+      
+      pythonManager.on('extract-complete', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'extract-complete', message: data.message });
+      });
+
+      pythonManager.on('setup-pip', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'setup-pip', message: data.message });
+      });
+
+      pythonManager.on('pip-ready', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'pip-ready', message: data.message });
+      });
+
+      pythonManager.on('setup-complete', (data) => {
+        mainWindow.webContents.send('python-setup', { stage: 'setup-complete', message: data.message });
+      });
+
+      appManager.on('launch-app-end', (data) => {
+        mainWindow.webContents.send('launch-app-end', {message: data.message});
+      });
+
+      appManager.on('launch-app-status', (data) => {
+        mainWindow.webContents.send('launch-app-status', {message: data.message});
+      });
+    }
+    
+    // 设置IPC处理程序
+    setupIpcHandlers();
+  });
 
 // 所有窗口关闭时退出应用
 app.on('window-all-closed', () => {
+  // 停止认证服务器
+  stopAuthServer();
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// 应用退出前清理
+app.on('before-quit', () => {
+  stopAuthServer();
 });
 
 // 设置IPC处理程序
@@ -113,6 +198,11 @@ function setupIpcHandlers() {
   // 打开外部链接
   ipcMain.on('open-external', (_, url) => {
     shell.openExternal(url);
+  });
+
+  // 获取认证服务器端口
+  ipcMain.handle('get-auth-port', () => {
+    return authPort;
   });
 
   // 接收渲染进程的日志

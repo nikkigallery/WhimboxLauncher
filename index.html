@@ -566,12 +566,9 @@
         white-space: nowrap;
       }
       
-      .user-menu-email {
+      .user-menu-vip {
         font-size: 12px;
         color: #666;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
       
       .user-menu-divider {
@@ -790,43 +787,13 @@
       </div>
     </div>
 
-    <!-- 登录模态窗口 -->
-    <div class="modal-overlay" id="login-modal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">登录</h3>
-          <button class="modal-close" id="login-close">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">照相馆注册邮箱</label>
-            <input type="email" class="form-input" id="email">
-          </div>
-          <div class="form-group">
-            <label class="form-label">照相馆登录密码</label>
-            <input type="password" class="form-input" id="password">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" id="register-btn">注册</button>
-          <div style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary" id="login-cancel">取消</button>
-            <button class="btn btn-primary" id="login-submit">登录</button>
-          </div>
-        </div>
-        <div class="modal-footer right">
-          <button class="btn btn-success" id="login-wx">微信登录</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 用户菜单 -->
     <div class="user-menu" id="user-menu" style="display: none;">
       <div class="user-menu-header">
         <img class="user-menu-avatar" id="user-menu-avatar" src="" alt="用户头像">
         <div class="user-menu-info">
           <div class="user-menu-name" id="user-menu-name">用户名</div>
-          <div class="user-menu-email" id="user-menu-email">user@example.com</div>
+          <div class="user-menu-vip" id="user-menu-vip">会员到期时间</div>
         </div>
       </div>
       <div class="user-menu-divider"></div>

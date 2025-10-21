@@ -54,22 +54,6 @@ class UserManager {
   }
 
   /**
-   * 设置用户信息
-   */
-  setUser(userData) {
-    this.user = {
-      id: userData.id,
-      email: userData.email,
-      username: userData.username,
-      avatar: userData.avatar,
-      uid: userData.uid,
-    };
-    this.accessToken = userData.access_token;
-    this.refreshToken = userData.refresh_token;
-    this.saveUserToStorage();
-  }
-
-  /**
    * 清除用户信息
    */
   clearUser() {
@@ -299,24 +283,44 @@ class APIClient {
   }
 
   /**
-   * 用户登录
-   * @param {string} email - 邮箱
-   * @param {string} password - 密码
+   * 使用refresh_token登录
+   * @param {string} refreshToken - 刷新令牌
    * @returns {Promise<object>} 用户信息
    */
-  async login(email, password) {
+  async loginWithRefreshToken(refreshToken) {
     try {
-      const userData = await this.request('/user/login', {
-        method: 'POST',
-        data: { email, password }
+      // 先设置refresh_token
+      this.userManager.refreshToken = refreshToken;
+      
+      // 使用refresh_token获取新的access_token
+      const refreshed = await this.refreshAccessToken();
+      if (!refreshed) {
+        throw new Error('未获取到登录凭证，请重试');
+      }
+      
+      // 获取用户信息
+      const userData = await this.request('/user/0', {
+        method: 'GET',
+        requireAuth: true
       });
-
-      // 保存用户信息
-      this.userManager.setUser(userData);
-
-      return userData;
+      
+      // 更新用户信息
+      this.userManager.user = {
+        id: userData.id,
+        username: userData.username,
+        avatar: userData.avatar,
+        is_vip: userData.is_vip,
+        vip_expiry_data: userData.vip_expiry_data,
+      };
+      this.userManager.saveUserToStorage();
+      
+      return {
+        user: this.userManager.user,
+        access_token: this.userManager.accessToken,
+        refresh_token: this.userManager.refreshToken
+      };
     } catch (error) {
-      console.error('登录失败:', error);
+      console.error('使用refresh_token登录失败:', error);
       throw error;
     }
   }
