@@ -87,6 +87,7 @@ const userElements = {
   userMenu: document.getElementById('user-menu'),
   userMenuAvatar: document.getElementById('user-menu-avatar'),
   userMenuName: document.getElementById('user-menu-name'),
+  userMenuVip: document.getElementById('user-menu-vip'),
   userMenuLogout: document.getElementById('user-menu-logout')
 };
 
@@ -145,6 +146,11 @@ export function updateUserUI() {
     userElements.userMenuAvatar.src = avatarUrl;
     userElements.userMenuAvatar.alt = user.username;
     userElements.userMenuName.textContent = user.username;
+    if (user.is_vip) {
+      userElements.userMenuVip.textContent = '会员到期时间: ' + user.vip_expiry_data;
+    } else {
+      userElements.userMenuVip.textContent = '未开通会员';
+    }
 
     return true;
   } else {
