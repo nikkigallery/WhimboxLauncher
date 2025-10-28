@@ -338,6 +338,7 @@ class PythonManager extends EventEmitter {
       
       process.stdout.on('data', (data) => {
         const output = data.toString();
+        console.log(output);
         stdout += output;
         
         if (emitProgress) {
@@ -349,6 +350,7 @@ class PythonManager extends EventEmitter {
       
       process.stderr.on('data', (data) => {
         const output = data.toString();
+        console.error(output);
         stderr += output;
         
         if (emitProgress) {
