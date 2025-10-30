@@ -42,10 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAssetPath: () => {
     // 开发环境用相对路径，生产环境用绝对路径
     if (process.env.NODE_ENV === 'development') {
-      return './assets/bg.webp';
+      return './assets/bg.jpg';
     } else {
       // 生产环境，资源在 app.asar 同级的 resources/assets 目录
-      return 'file:///resources/assets/bg.webp';
+      return 'file:///resources/assets/bg.jpg';
     }
   },
 

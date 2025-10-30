@@ -303,7 +303,7 @@ async function checkAndUpdateStatus() {
     if (updateResult.needVip) {
       appState.isVip = false;
       appState.autoUpdateAvailable = false;
-      elements.updateStatus.textContent = '未开通会员，无法自动更新';
+      elements.updateStatus.textContent = '未开通会员，无法检测';
       api.mylogger.log('更新检测需要升级会员:', updateResult.message);
     } else if (updateResult.needsLogin) {
       appState.isLogin = false;
@@ -339,11 +339,11 @@ function updateMainButton(){
     updateButtonState('updating', '自动更新');
   } else if (appState.manualUpdateAvailable) {
     updateButtonState('updating', '安装更新');
-  } else if (appState.appInstalled) {
+  } else if (appState.appInstalled && !appState.manualUpdateAvailable) {
     updateButtonState('ready', '一键启动');
-  } else if (!appState.isLogin){
+  } else if (!appState.isLogin && !appState.manualUpdateAvailable){
     updateButtonState('disabled', '请先登录');
-  } else if (!appState.isVip){
+  } else if (!appState.isVip && !appState.manualUpdateAvailable){
     updateButtonState('disabled', '请先开通会员');
   }
 }
@@ -514,13 +514,13 @@ async function checkState(){
     await checkAndUpdateStatus();
   } else{
     appState.autoUpdateAvailable = false;
-    elements.updateStatus.textContent = '未登录，请手动更新';
+    elements.updateStatus.textContent = '未登录，无法检测';
+  }
 
-    const manualUpdateWhl = await api.checkManualUpdateWhl();
-    if (manualUpdateWhl) {
-      appState.manualUpdateAvailable = true;
-      elements.updateStatus.textContent = '有手动更新包';
-    }
+  const manualUpdateWhl = await api.checkManualUpdateWhl();
+  if (manualUpdateWhl && !appState.autoUpdateAvailable) {
+    appState.manualUpdateAvailable = true;
+    elements.updateStatus.textContent = '有手动更新包';
   }
 
   updateMainButton();

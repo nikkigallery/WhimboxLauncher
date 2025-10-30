@@ -149,7 +149,11 @@ export function updateUserUI() {
     if (user.is_vip) {
       userElements.userMenuVip.textContent = '会员到期时间: ' + user.vip_expiry_data;
     } else {
-      userElements.userMenuVip.textContent = '未开通会员';
+      if (user.vip_expiry_data){
+        userElements.userMenuVip.textContent = '会员已过期: ' + user.vip_expiry_data;
+      } else {
+        userElements.userMenuVip.textContent = '未开通会员';
+      }
     }
 
     return true;
