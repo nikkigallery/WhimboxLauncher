@@ -277,12 +277,12 @@ class PythonManager extends EventEmitter {
       });
       
       // 为embeded python安装setuptools
-      await this.runCommand(pythonEnv.command, ['-m', 'pip', 'install', '-i', 'https://mirrors.aliyun.com/pypi/simple/', 'setuptools'], true);
+      await this.runCommand(pythonEnv.command, ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', 'setuptools'], true);
 
       // 使用 pip 安装 wheel 包
       const result = await this.runCommand(
         pythonEnv.command,
-        ['-m', 'pip', 'install', '-i', 'https://mirrors.aliyun.com/pypi/simple/', wheelPath],
+        ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', wheelPath],
         true, 10 * 60 * 1000 // 超时10分钟
       );
       
