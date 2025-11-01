@@ -21,13 +21,13 @@ const createWindow = () => {
     minHeight: 600,
     frame: false, // 隐藏默认标题栏
     transparent: false,
-    resizable: true,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true
     },
-    icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'icon.ico')
   });
 
   mainWindow.loadFile('index.html');
