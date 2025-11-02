@@ -126,6 +126,19 @@ app.whenReady().then(async () => {
       pythonManager.on('install-progress', (data) => {
         mainWindow.webContents.send('install-progress', data.output);
       });
+
+      // pip 源速度测试事件监听
+      pythonManager.on('speed-test-start', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
+      });
+
+      pythonManager.on('speed-test-progress', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
+      });
+
+      pythonManager.on('speed-test-complete', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
+      });
       
       // 设置 Python 环境设置事件监听
       pythonManager.on('setup-start', (data) => {

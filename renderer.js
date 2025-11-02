@@ -415,8 +415,12 @@ api.onDownloadProgress((progress) => {
 // 安装进度
 let installProgress = 0
 api.onInstallProgress((message) => {
-  showProgress("安装中...", installProgress);
-  installProgress += 5;
+  let msg = "首次更新，时间会比较久...";
+  if (appState.appInstalled) {
+    msg = "更新中...";
+  }
+  showProgress(msg, installProgress);
+  installProgress += 0.25;
   if (installProgress > 100) {
     installProgress = 0;
   }
