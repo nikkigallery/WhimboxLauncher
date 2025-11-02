@@ -69,7 +69,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 应用状态和控制
   getAppStatus: () => ipcRenderer.invoke('get-app-status'),
   launchApp: () => ipcRenderer.invoke('launch-app'),
+  stopApp: () => ipcRenderer.invoke('stop-app'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openScriptsFolder: () => ipcRenderer.invoke('open-scripts-folder'),
   
 
   // 脚本订阅管理

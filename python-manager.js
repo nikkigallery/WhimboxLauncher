@@ -4,6 +4,8 @@ const fs = require('fs');
 const { app } = require('electron');
 const { EventEmitter } = require('events');
 const AdmZip = require('adm-zip');
+const https = require('https');
+const http = require('http');
 
 const REQUIRED_PYTHON_VERSION = '3.12.8';
 
@@ -145,79 +147,6 @@ class PythonManager extends EventEmitter {
     }
   }
 
-  // /**
-  //  * 配置 pip
-  //  * @returns {Promise<void>}
-  //  */
-  // async setupPip() {
-  //   // 修改 python312._pth 文件以启用 site-packages
-  //   const pthFile = path.join(this.embeddedPythonDir, 'python312._pth');
-    
-  //   if (fs.existsSync(pthFile)) {
-  //     let content = fs.readFileSync(pthFile, 'utf8');
-      
-  //     // 取消注释 import site 行
-  //     if (content.includes('#import site')) {
-  //       content = content.replace('#import site', 'import site');
-  //       fs.writeFileSync(pthFile, content);
-  //     } else if (!content.includes('import site')) {
-  //       // 如果不存在，添加 import site
-  //       content += '\nimport site\n';
-  //       fs.writeFileSync(pthFile, content);
-  //     }
-  //   }
-
-  //   // 使用 assets 目录中的 get-pip.py
-  //   this.emit('setup-pip', { message: '正在准备 pip 安装程序...' });
-    
-  //   // get-pip.py 路径（在应用资源目录中）
-  //   const getPipZipPath = path.join(process.resourcesPath || __dirname, 'assets', 'get-pip.py');
-    
-  //   // 如果在开发环境，使用相对路径
-  //   const devGetPipPath = path.join(__dirname, 'assets', 'get-pip.py');
-  //   const getPipSourcePath = fs.existsSync(getPipZipPath) ? getPipZipPath : devGetPipPath;
-    
-  //   if (!fs.existsSync(getPipSourcePath)) {
-  //     throw new Error(`找不到 get-pip.py 文件: ${getPipSourcePath}`);
-  //   }
-    
-  //   // 复制到 Python 目录
-  //   const getPipTargetPath = path.join(this.embeddedPythonDir, 'get-pip.py');
-  //   fs.copyFileSync(getPipSourcePath, getPipTargetPath);
-    
-  //   this.emit('setup-pip', { message: '正在安装 pip...' });
-    
-  //   // 安装 pip
-  //   await this.runCommand(this.embeddedPythonPath, [getPipTargetPath], false, 120000); // 120秒超时
-    
-  //   // 删除临时文件
-  //   if (fs.existsSync(getPipTargetPath)) {
-  //     fs.unlinkSync(getPipTargetPath);
-  //   }
-    
-  //   // 验证 pip 是否安装成功
-  //   const pipAvailable = await this.isPipAvailable(this.embeddedPythonPath);
-  //   if (!pipAvailable) {
-  //     throw new Error('pip 安装失败，无法使用 pip 命令');
-  //   }
-    
-  //   this.emit('pip-ready', { message: 'pip 安装成功' });
-  // }
-
-  /**
-   * 检查 Python 命令是否有效
-   * @param {string} command - Python 命令
-   * @returns {Promise<boolean>} 命令是否有效
-   */
-  async isPythonCommandValid(command) {
-    try {
-      await this.runCommand(command, ['-c', 'print("ok")'], false, 5000);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
   /**
    * 获取 Python 版本信息
    * @param {string} command - Python 命令
@@ -245,10 +174,180 @@ class PythonManager extends EventEmitter {
    */
   async isPipAvailable(pythonCommand) {
     try {
-      await this.runCommand(pythonCommand, ['-m', 'pip', '--version'], false, 5000);
+      await this.runCommand(pythonCommand, ['-s', '-m', 'pip', '--version'], false, 5000);
       return true;
     } catch (error) {
       return false;
+    }
+  }
+
+  /**
+   * 测试 pip 源的下载速度
+   * @param {string} sourceUrl - pip 源 URL
+   * @param {number} timeout - 超时时间（毫秒）
+   * @returns {Promise<number>} 下载速度（KB/s），失败返回 0
+   */
+  async testPipSourceSpeed(sourceUrl, timeout = 5000) {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const urlObj = new URL(sourceUrl);
+      const protocol = urlObj.protocol === 'https:' ? https : http;
+      
+      let downloadedBytes = 0;
+      let downloadStartTime = null; // 开始接收数据的时间
+      
+      const timeoutId = setTimeout(() => {
+        req.destroy();
+        console.log(`测试 ${sourceUrl}: 超时`)
+        resolve(0);
+      }, timeout);
+      
+      // 添加请求选项，包括 User-Agent
+      // 测试下载一个常见的包信息页面来评估速度
+      const testPath = urlObj.pathname.replace(/\/$/, '') + '/pip/';
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port,
+        path: testPath,
+        method: 'GET',
+        headers: {
+          'User-Agent': 'pip/23.0 (python 3.12)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'identity',
+        }
+      };
+
+      const req = protocol.request(options, (res) => {
+        // 检查状态码
+        if (res.statusCode < 200 || res.statusCode >= 400) {
+          clearTimeout(timeoutId);
+          console.log(`测试 ${sourceUrl}: 失败 ${res.statusCode}`)
+          res.destroy();
+          resolve(0);
+          return;
+        }
+        
+        // 接收数据，计算下载字节数
+        res.on('data', (chunk) => {
+          if (!downloadStartTime) {
+            downloadStartTime = Date.now(); // 记录开始下载的时间
+          }
+          
+          downloadedBytes += chunk.length;
+          
+          // 下载足够的数据后就可以停止了（比如 50KB 或 2 秒后）
+          const totalElapsed = Date.now() - startTime;
+          if (downloadedBytes >= 50 * 1024 || totalElapsed >= 2000) {
+            clearTimeout(timeoutId);
+            res.destroy();
+            
+            // 计算下载速度（KB/s）- 只计算实际下载时间
+            const downloadTime = Date.now() - downloadStartTime; // 实际下载耗时
+            const speedKBps = (downloadedBytes / 1024) / (downloadTime / 1000);
+            
+            console.log(`测试 ${sourceUrl}: 下载${(downloadedBytes/1024).toFixed(1)}KB用时${downloadTime}ms, 速度${speedKBps.toFixed(2)}KB/s`);
+            resolve(speedKBps);
+          }
+        });
+        
+        res.on('end', () => {
+          clearTimeout(timeoutId);
+          
+          if (downloadedBytes === 0 || !downloadStartTime) {
+            console.log(`测试 ${sourceUrl}: 无数据`);
+            resolve(0);
+          } else {
+            const downloadTime = Date.now() - downloadStartTime;
+            const speedKBps = (downloadedBytes / 1024) / (downloadTime / 1000);
+            
+            console.log(`测试 ${sourceUrl}: 完成, 下载${(downloadedBytes/1024).toFixed(1)}KB用时${downloadTime}ms, 速度${speedKBps.toFixed(2)}KB/s`);
+            resolve(speedKBps);
+          }
+        });
+        
+        res.on('error', (err) => {
+          clearTimeout(timeoutId);
+          console.log(`测试 ${sourceUrl}: 读取错误 ${err.message}`);
+          resolve(0);
+        });
+      });
+      
+      req.on('error', (err) => {
+        clearTimeout(timeoutId);
+        console.log(`测试 ${sourceUrl}: 连接错误 ${err.message}`);
+        resolve(0);
+      });
+      
+      // 发送请求
+      req.end();
+    });
+  }
+
+  /**
+   * 测试所有 pip 源并选择最快的
+   * @param {Array<string>} sources - pip 源列表
+   * @returns {Promise<Object>} 包含最快源和测试结果的对象
+   */
+  async selectFastestPipSource(sources) {
+    try {
+      this.emit('speed-test-start', {
+        message: '正在测试 pip 源速度...',
+        total: sources.length
+      });
+      
+      // 并发测试所有源
+      const testResults = await Promise.all(
+        sources.map(async (source, index) => {
+          const speed = await this.testPipSourceSpeed(source);
+          
+          this.emit('speed-test-progress', {
+            source,
+            speed,
+            index,
+            total: sources.length,
+            message: speed === 0 
+              ? `测试 ${source}: 失败或超时`
+              : `测试 ${source}: ${speed.toFixed(2)} KB/s`
+          });
+          
+          return {
+            source,
+            speed
+          };
+        })
+      );
+      
+      // 找到最快的源（速度最高的）
+      const fastestResult = testResults.reduce((fastest, current) => {
+        return current.speed > fastest.speed ? current : fastest;
+      });
+
+      console.log(`最快的 pip 源: ${fastestResult.source} (速度: ${fastestResult.speed.toFixed(2)} KB/s)`)
+      this.emit('speed-test-complete', {
+        fastest: fastestResult.source,
+        speed: fastestResult.speed,
+        results: testResults,
+        message: `最快的 pip 源: ${fastestResult.source} (${fastestResult.speed.toFixed(2)} KB/s)`
+      });
+      
+      return {
+        fastest: fastestResult.source,
+        speed: fastestResult.speed,
+        results: testResults
+      };
+    } catch (error) {
+      this.emit('speed-test-error', {
+        error: error.message
+      });
+      
+      // 如果测速失败，返回第一个源作为默认值
+      return {
+        fastest: sources[0],
+        speed: 0,
+        results: [],
+        error: error.message
+      };
     }
   }
 
@@ -276,13 +375,28 @@ class PythonManager extends EventEmitter {
         pythonVersion: pythonEnv.version
       });
       
+      // pip 源列表
+      const pip_source_list = [
+        'https://mirrors.ustc.edu.cn/pypi/simple/',
+        'https://pypi.tuna.tsinghua.edu.cn/simple/',
+        'https://mirrors.cloud.tencent.com/pypi/simple/',
+        'https://mirrors.aliyun.com/pypi/simple/',
+      ];
+
+      // 测试并选择最快的 pip 源
+      const { fastest: fastestPipSource } = await this.selectFastestPipSource(pip_source_list);
+      
+      this.emit('install-progress', {
+        output: `使用最快的 pip 源: ${fastestPipSource}\n`
+      });
+
       // 为embeded python安装setuptools
-      await this.runCommand(pythonEnv.command, ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', 'setuptools'], true);
+      await this.runCommand(pythonEnv.command, ['-s', '-m', 'pip', 'install', '-i', fastestPipSource, 'setuptools'], true);
 
       // 使用 pip 安装 wheel 包
       const result = await this.runCommand(
         pythonEnv.command,
-        ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', wheelPath],
+        ['-s', '-m', 'pip', 'install', '-i', fastestPipSource, wheelPath],
         true, 10 * 60 * 1000 // 超时10分钟
       );
       

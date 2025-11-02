@@ -1,8 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
-const downloader = require('./downloader');
-const AdmZip = require('adm-zip');
+const { app, shell } = require('electron');
 const { EventEmitter } = require('events');
 const axios = require('axios');
 
@@ -301,6 +299,22 @@ class ScriptManager extends EventEmitter {
       throw new Error(`清空scripts目录失败: ${error.message}`);
     }
   }
+
+    /**
+   * 打开脚本文件夹
+   */
+    async openScriptsFolder() {
+      try {
+        // 确保文件夹存在
+        if (!fs.existsSync(this.scriptsDir)) {
+          fs.mkdirSync(this.scriptsDir, { recursive: true });
+        }
+        // 打开文件夹
+        await shell.openPath(this.scriptsDir);
+      } catch (error) {
+        console.error('打开脚本文件夹失败:', error);
+      }
+    }
 }
 
 module.exports = new ScriptManager();

@@ -20,7 +20,7 @@ class Logger {
     log.transports.file.resolvePathFn = () => {
       const date = new Date();
       const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-      return path.join(logsDir, dateStr, `launcher-${dateStr}.log`);
+      return path.join(logsDir, `launcher-${dateStr}.log`);
     };
 
     // 启用渲染进程日志支持

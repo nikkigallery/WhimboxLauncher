@@ -21,13 +21,13 @@ const createWindow = () => {
     minHeight: 600,
     frame: false, // 隐藏默认标题栏
     transparent: false,
-    resizable: true,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true
     },
-    icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'icon.ico')
   });
 
   mainWindow.loadFile('index.html');
@@ -125,6 +125,19 @@ app.whenReady().then(async () => {
       // 设置安装进度事件监听
       pythonManager.on('install-progress', (data) => {
         mainWindow.webContents.send('install-progress', data.output);
+      });
+
+      // pip 源速度测试事件监听
+      pythonManager.on('speed-test-start', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
+      });
+
+      pythonManager.on('speed-test-progress', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
+      });
+
+      pythonManager.on('speed-test-complete', (data) => {
+        mainWindow.webContents.send('install-progress', data.message);
       });
       
       // 设置 Python 环境设置事件监听
@@ -286,9 +299,21 @@ function setupIpcHandlers() {
       throw new Error(`启动应用失败: ${error.message}`);
     }
   });
+
+  ipcMain.handle('stop-app', async () => {
+    try {
+      return await appManager.stopApp();
+    } catch (error) {
+      throw new Error(`停止应用失败: ${error.message}`);
+    }
+  });
   
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('open-scripts-folder', async () => {
+    return await scriptManager.openScriptsFolder();
   });
 
 
