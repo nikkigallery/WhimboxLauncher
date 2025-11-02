@@ -145,65 +145,6 @@ class PythonManager extends EventEmitter {
     }
   }
 
-  // /**
-  //  * 配置 pip
-  //  * @returns {Promise<void>}
-  //  */
-  // async setupPip() {
-  //   // 修改 python312._pth 文件以启用 site-packages
-  //   const pthFile = path.join(this.embeddedPythonDir, 'python312._pth');
-    
-  //   if (fs.existsSync(pthFile)) {
-  //     let content = fs.readFileSync(pthFile, 'utf8');
-      
-  //     // 取消注释 import site 行
-  //     if (content.includes('#import site')) {
-  //       content = content.replace('#import site', 'import site');
-  //       fs.writeFileSync(pthFile, content);
-  //     } else if (!content.includes('import site')) {
-  //       // 如果不存在，添加 import site
-  //       content += '\nimport site\n';
-  //       fs.writeFileSync(pthFile, content);
-  //     }
-  //   }
-
-  //   // 使用 assets 目录中的 get-pip.py
-  //   this.emit('setup-pip', { message: '正在准备 pip 安装程序...' });
-    
-  //   // get-pip.py 路径（在应用资源目录中）
-  //   const getPipZipPath = path.join(process.resourcesPath || __dirname, 'assets', 'get-pip.py');
-    
-  //   // 如果在开发环境，使用相对路径
-  //   const devGetPipPath = path.join(__dirname, 'assets', 'get-pip.py');
-  //   const getPipSourcePath = fs.existsSync(getPipZipPath) ? getPipZipPath : devGetPipPath;
-    
-  //   if (!fs.existsSync(getPipSourcePath)) {
-  //     throw new Error(`找不到 get-pip.py 文件: ${getPipSourcePath}`);
-  //   }
-    
-  //   // 复制到 Python 目录
-  //   const getPipTargetPath = path.join(this.embeddedPythonDir, 'get-pip.py');
-  //   fs.copyFileSync(getPipSourcePath, getPipTargetPath);
-    
-  //   this.emit('setup-pip', { message: '正在安装 pip...' });
-    
-  //   // 安装 pip
-  //   await this.runCommand(this.embeddedPythonPath, [getPipTargetPath], false, 120000); // 120秒超时
-    
-  //   // 删除临时文件
-  //   if (fs.existsSync(getPipTargetPath)) {
-  //     fs.unlinkSync(getPipTargetPath);
-  //   }
-    
-  //   // 验证 pip 是否安装成功
-  //   const pipAvailable = await this.isPipAvailable(this.embeddedPythonPath);
-  //   if (!pipAvailable) {
-  //     throw new Error('pip 安装失败，无法使用 pip 命令');
-  //   }
-    
-  //   this.emit('pip-ready', { message: 'pip 安装成功' });
-  // }
-
   /**
    * 检查 Python 命令是否有效
    * @param {string} command - Python 命令
@@ -245,7 +186,7 @@ class PythonManager extends EventEmitter {
    */
   async isPipAvailable(pythonCommand) {
     try {
-      await this.runCommand(pythonCommand, ['-m', 'pip', '--version'], false, 5000);
+      await this.runCommand(pythonCommand, ['-s', '-m', 'pip', '--version'], false, 5000);
       return true;
     } catch (error) {
       return false;
@@ -277,12 +218,12 @@ class PythonManager extends EventEmitter {
       });
       
       // 为embeded python安装setuptools
-      await this.runCommand(pythonEnv.command, ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', 'setuptools'], true);
+      await this.runCommand(pythonEnv.command, ['-s', '-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', 'setuptools'], true);
 
       // 使用 pip 安装 wheel 包
       const result = await this.runCommand(
         pythonEnv.command,
-        ['-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', wheelPath],
+        ['-s', '-m', 'pip', 'install', '-i', 'https://mirrors.ustc.edu.cn/pypi/simple/', wheelPath],
         true, 10 * 60 * 1000 // 超时10分钟
       );
       
