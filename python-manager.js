@@ -391,12 +391,12 @@ class PythonManager extends EventEmitter {
       });
 
       // 为embeded python安装setuptools
-      await this.runCommand(pythonEnv.command, ['-s', '-m', 'pip', 'install', '--no-warn-script-location', '-i', fastestPipSource, 'setuptools'], true);
+      await this.runCommand(pythonEnv.command, ['-s', '-m', 'pip', 'install', '-i', fastestPipSource, 'setuptools'], true);
 
       // 使用 pip 安装 wheel 包
       const result = await this.runCommand(
         pythonEnv.command,
-        ['-s', '-m', 'pip', 'install', '--no-warn-script-location', '-i', fastestPipSource, wheelPath],
+        ['-s', '-m', 'pip', 'install', '-i', fastestPipSource, wheelPath],
         true, 10 * 60 * 1000 // 超时10分钟
       );
       
