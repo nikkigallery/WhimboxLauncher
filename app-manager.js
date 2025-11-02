@@ -29,6 +29,9 @@ class AppManager extends EventEmitter {
     
     // 初始化应用状态
     this.appStatus = this.loadAppStatus();
+    
+    // 保存运行中的应用进程
+    this.appProcess = null;
   }
 
   /**
@@ -223,11 +226,11 @@ class AppManager extends EventEmitter {
       // 启动Python应用
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
       const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, this.appStatus.entryPoint + '.exe')
-      const process = spawn(entryPointPath, {
+      this.appProcess = spawn(entryPointPath, {
         windowsHide: true,
       });
 
-      process.stdout.on('data', (data) => {
+      this.appProcess.stdout.on('data', (data) => {
         const output = data.toString();
         if(output.includes('WAIT_FOR_GAME_START')) {
           this.emit('launch-app-status', {message: "等待游戏启动"});
@@ -239,14 +242,19 @@ class AppManager extends EventEmitter {
       });
 
       // 监听进程错误
-      process.on('error', (error) => {
+      this.appProcess.on('error', (error) => {
         console.error(`运行异常: ${error.message}`);
       });
       
       // 监听进程退出
-      process.on('close', code => {
+      this.appProcess.on('close', code => {
         console.log(`进程退出, 代码: ${code}`);
-        this.emit('launch-app-end', {message: code.toString()});
+        this.appProcess = null;
+        if (code != null){
+          this.emit('launch-app-end', {message: code.toString()});
+        } else {
+          this.emit('launch-app-end', {message: 'null'});
+        }
       });
       
       return {
@@ -254,6 +262,34 @@ class AppManager extends EventEmitter {
       };
     } catch (error) {
       throw new Error(`启动应用失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 停止应用
+   * @returns {Promise<Object>} 停止结果
+   */
+  async stopApp() {
+    try {
+      if (!this.appProcess) {
+        return { success: true, message: '应用未运行' };
+      }
+      
+      // 尝试优雅地终止进程
+      this.appProcess.kill('SIGTERM');
+      
+      // 等待一段时间后如果还未结束，强制杀死进程
+      setTimeout(() => {
+        if (this.appProcess && !this.appProcess.killed) {
+          console.log('强制结束进程');
+          this.appProcess.kill('SIGKILL');
+        }
+      }, 3000);
+      
+      console.log('应用停止指令已发送');
+      return { success: true };
+    } catch (error) {
+      throw new Error(`停止应用失败: ${error.message}`);
     }
   }
 }

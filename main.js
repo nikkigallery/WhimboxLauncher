@@ -286,9 +286,21 @@ function setupIpcHandlers() {
       throw new Error(`启动应用失败: ${error.message}`);
     }
   });
+
+  ipcMain.handle('stop-app', async () => {
+    try {
+      return await appManager.stopApp();
+    } catch (error) {
+      throw new Error(`停止应用失败: ${error.message}`);
+    }
+  });
   
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('open-scripts-folder', async () => {
+    return await scriptManager.openScriptsFolder();
   });
 
 

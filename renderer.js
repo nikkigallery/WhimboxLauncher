@@ -38,7 +38,11 @@ const elements = {
   progressFill: document.getElementById('progress-fill'),
   
   // 启动按钮
-  launchBtn: document.getElementById('launch-btn')
+  launchBtn: document.getElementById('launch-btn'),
+  launchMenuBtn: document.getElementById('launch-menu-btn'),
+  launchMenuPopup: document.getElementById('launch-menu-popup'),
+  stopAppBtn: document.getElementById('stop-app-btn'),
+  openScriptsFolderBtn: document.getElementById('open-scripts-folder-btn')
 };
 
 // ==================== 标题栏功能 ====================
@@ -50,6 +54,59 @@ elements.minimizeBtn.addEventListener('click', () => {
 // 关闭按钮
 elements.closeBtn.addEventListener('click', () => {
   api.closeWindow();
+});
+
+// ==================== 启动菜单功能 ====================
+// 切换启动菜单显示/隐藏
+elements.launchMenuBtn.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const isVisible = elements.launchMenuPopup.classList.contains('show');
+  
+  if (isVisible) {
+    elements.launchMenuPopup.classList.remove('show');
+  } else {
+    // 获取按钮位置
+    const btnRect = elements.launchMenuBtn.getBoundingClientRect();
+    
+    // 设置弹出框位置（在按钮上方）
+    elements.launchMenuPopup.style.right = '20px';
+    elements.launchMenuPopup.style.bottom = (window.innerHeight - btnRect.top + 10) + 'px';
+    
+    // 显示菜单
+    elements.launchMenuPopup.classList.add('show');
+  }
+});
+
+// 点击页面其他地方关闭菜单
+document.addEventListener('click', (event) => {
+  if (!elements.launchMenuPopup.contains(event.target) && 
+      event.target !== elements.launchMenuBtn) {
+    elements.launchMenuPopup.classList.remove('show');
+  }
+});
+
+// 结束奇想盒按钮
+elements.stopAppBtn.addEventListener('click', async () => {
+  elements.launchMenuPopup.classList.remove('show');
+  try {
+    await api.stopApp();
+    customAlert('奇想盒已结束');
+  } catch (error) {
+    api.mylogger.error('结束奇想盒失败:', error);
+    customAlert(`结束奇想盒失败：${error.message}`);
+  }
+});
+
+// 打开路线文件夹按钮
+elements.openScriptsFolderBtn.addEventListener('click', async () => {
+  elements.launchMenuPopup.classList.remove('show');
+  
+  try {
+    await api.openScriptsFolder();
+  } catch (error) {
+    api.mylogger.error('打开路线文件夹失败:', error);
+    customAlert(`打开路线文件夹失败：${error.message}`);
+  }
 });
 
 // ==================== 启动按钮功能 ====================
