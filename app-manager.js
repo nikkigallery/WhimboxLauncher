@@ -119,8 +119,7 @@ class AppManager extends EventEmitter {
         
         // 初始化app
         const entryPoint = packageInfo.name.replace(/-/g, '_')
-        const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, entryPoint + '.exe')
-        await pythonManager.runCommand(entryPointPath, ['init'], true)
+        await pythonManager.runCommand(pythonManager.embeddedPythonPath, ['-s', '-m', `${entryPoint}.main`, 'init'], true)
 
         // 更新应用状态
         this.appStatus = {
@@ -225,8 +224,7 @@ class AppManager extends EventEmitter {
       
       // 启动Python应用
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
-      const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, this.appStatus.entryPoint + '.exe')
-      this.appProcess = spawn(entryPointPath, {
+      this.appProcess = spawn(pythonManager.embeddedPythonPath, ['-s', '-m', `${this.appStatus.entryPoint}.main`], {
         windowsHide: true,
       });
 
