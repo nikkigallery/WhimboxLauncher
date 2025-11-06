@@ -94,7 +94,14 @@ class AppManager extends EventEmitter {
         
         // 初始化app
         const entryPoint = packageInfo.name.replace(/-/g, '_')
-        await pythonManager.runCommand(pythonManager.embeddedPythonPath, ['-s', '-m', `${entryPoint}.main`, 'init'], true)
+        await pythonManager.runCommand(
+          pythonManager.embeddedPythonPath, 
+          ['-s', '-m', `${entryPoint}.main`, 'init'], 
+          {
+            windowsHide: true,
+            env: pythonManager.env
+          }
+        );
 
         // 更新应用状态
         this.appStatus = {
@@ -201,9 +208,13 @@ class AppManager extends EventEmitter {
       
       // 启动Python应用
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
-      this.appProcess = spawn(pythonManager.embeddedPythonPath, ['-s', '-m', `${this.appStatus.entryPoint}.main`], {
-        windowsHide: true,
-      });
+      this.appProcess = spawn(
+        pythonManager.embeddedPythonPath, 
+        ['-s', '-m', `${this.appStatus.entryPoint}.main`], 
+        {
+          windowsHide: true,
+          env: pythonManager.env
+        });
 
       this.appProcess.stdout.on('data', (data) => {
         const output = data.toString();
