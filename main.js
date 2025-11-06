@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const logger = require('./logger'); // 引入日志模块（必须在最前面初始化）
@@ -14,84 +14,148 @@ let authPort = 0;
 
 // 创建主窗口
 const createWindow = () => {
-  mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    minWidth: 800,
-    minHeight: 600,
-    frame: false, // 隐藏默认标题栏
-    transparent: false,
-    resizable: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true
-    },
-    icon: path.join(__dirname, 'assets', 'icon.ico')
-  });
+  try {
+    console.log('开始创建主窗口...');
+    
+    mainWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      minWidth: 800,
+      minHeight: 600,
+      frame: false, // 隐藏默认标题栏
+      transparent: false,
+      resizable: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true
+      },
+      icon: path.join(__dirname, 'assets', 'icon.ico')
+    });
 
-  mainWindow.loadFile('index.html');
-  
-  // 开发环境下打开开发者工具
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
+    console.log('主窗口对象创建成功');
+
+    // 监听窗口事件
+    mainWindow.on('closed', () => {
+      console.log('主窗口已关闭');
+      mainWindow = null;
+    });
+
+    mainWindow.on('ready-to-show', () => {
+      console.log('主窗口准备就绪，可以显示');
+    });
+
+    mainWindow.webContents.on('did-start-loading', () => {
+      console.log('开始加载页面内容');
+    });
+
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log('页面加载完成');
+    });
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('页面加载失败:', errorCode, errorDescription);
+    });
+
+    mainWindow.webContents.on('crashed', (event, killed) => {
+      console.error('渲染进程崩溃! killed:', killed);
+    });
+
+    mainWindow.on('unresponsive', () => {
+      console.error('窗口无响应');
+    });
+
+    console.log('开始加载 index.html...');
+    mainWindow.loadFile('index.html')
+      .then(() => {
+        console.log('index.html 加载请求已发送');
+      })
+      .catch((error) => {
+        console.error('加载 index.html 失败:', error);
+      });
+    
+    // 开发环境下打开开发者工具
+    if (process.env.NODE_ENV === 'development') {
+      console.log('开发环境，打开开发者工具');
+      mainWindow.webContents.openDevTools();
+    }
+
+    console.log('createWindow 函数执行完成');
+  } catch (error) {
+    console.error('创建主窗口时发生错误:', error);
+    console.error('错误堆栈:', error.stack);
+    throw error;
   }
 };
 
 // 启动认证服务器
 function startAuthServer() {
+  console.log('准备启动认证服务器...');
   return new Promise((resolve, reject) => {
-    authServer = http.createServer((req, res) => {
-      const url = new URL(req.url, `http://localhost:${authPort}`);
-      
-      if (url.pathname === '/auth/callback') {
-        const refreshToken = url.searchParams.get('refresh_token');
+    try {
+      authServer = http.createServer((req, res) => {
+        const url = new URL(req.url, `http://localhost:${authPort}`);
+        console.log(`收到HTTP请求: ${req.method} ${url.pathname}`);
         
-        if (refreshToken) {
-          console.log('收到refresh_token:', refreshToken);
+        if (url.pathname === '/auth/callback') {
+          const refreshToken = url.searchParams.get('refresh_token');
           
-          // 发送refresh_token到渲染进程
-          if (mainWindow) {
-            mainWindow.webContents.send('auth-callback', { refreshToken });
-          }
-          
-          // 返回成功页面
-          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
-        } else {
-          res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('Missing refresh_token');
-        }
-      } else {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Not Found');
-      }
-    });
-    
-    // 尝试从8080端口开始，如果被占用则递增
-    let port = 8080;
-    const tryStart = () => {
-      authServer.listen(port, 'localhost', (err) => {
-        if (err) {
-          if (err.code === 'EADDRINUSE') {
-            port++;
-            if (port < 8090) { // 最多尝试到8089
-              tryStart();
-            } else {
-              reject(new Error('无法找到可用端口'));
+          if (refreshToken) {
+            console.log('收到refresh_token:', refreshToken);
+            
+            // 发送refresh_token到渲染进程
+            if (mainWindow) {
+              mainWindow.webContents.send('auth-callback', { refreshToken });
             }
+            
+            // 返回成功页面
+            res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
           } else {
-            reject(err);
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Missing refresh_token');
           }
         } else {
-          authPort = port;
-          console.log(`认证服务器已启动，端口: ${authPort}`);
-          resolve(port);
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Not Found');
         }
       });
-    };
-    
-    tryStart();
+      
+      console.log('HTTP服务器对象创建成功');
+      
+      // 尝试从8080端口开始，如果被占用则递增
+      let port = 8080;
+      const tryStart = () => {
+        console.log(`尝试在端口 ${port} 启动认证服务器...`);
+        authServer.listen(port, 'localhost', (err) => {
+          if (err) {
+            console.warn(`端口 ${port} 启动失败:`, err.message);
+            if (err.code === 'EADDRINUSE') {
+              port++;
+              if (port < 8090) { // 最多尝试到8089
+                tryStart();
+              } else {
+                const error = new Error('无法找到可用端口');
+                console.error(error.message);
+                reject(error);
+              }
+            } else {
+              console.error('启动认证服务器出错:', err);
+              reject(err);
+            }
+          } else {
+            authPort = port;
+            console.log(`认证服务器已启动，端口: ${authPort}`);
+            resolve(port);
+          }
+        });
+      };
+      
+      tryStart();
+    } catch (error) {
+      console.error('创建认证服务器时发生错误:', error);
+      reject(error);
+    }
   });
 }
 
@@ -107,94 +171,139 @@ function stopAuthServer() {
 
 // 应用准备就绪时创建窗口
 app.whenReady().then(async () => {
-  // 启动认证服务器
+  console.log('应用准备就绪 (app.whenReady)');
+  
   try {
+    // 启动认证服务器
+    console.log('开始启动认证服务器...');
     await startAuthServer();
+    console.log('认证服务器启动完成');
   } catch (error) {
     console.error('启动认证服务器失败:', error);
+    console.error('错误堆栈:', error.stack);
   }
   
-  createWindow();
+  try {
+    console.log('准备创建窗口...');
+    createWindow();
+    console.log('createWindow 调用完成');
+  } catch (error) {
+    console.error('createWindow 调用失败:', error);
+    console.error('错误堆栈:', error.stack);
+    // 不要让应用完全崩溃
+  }
 
-    // 设置下载进度事件监听
-    if (mainWindow){
-      downloader.on('progress', (progress) => {
-        mainWindow.webContents.send('download-progress', progress.progress);
-      });
-      
-      // 设置安装进度事件监听
-      pythonManager.on('install-progress', (data) => {
-        mainWindow.webContents.send('install-progress', data.output);
-      });
-
-      // pip 源速度测试事件监听
-      pythonManager.on('speed-test-start', (data) => {
-        mainWindow.webContents.send('install-progress', data.message);
-      });
-
-      pythonManager.on('speed-test-progress', (data) => {
-        mainWindow.webContents.send('install-progress', data.message);
-      });
-
-      pythonManager.on('speed-test-complete', (data) => {
-        mainWindow.webContents.send('install-progress', data.message);
-      });
-      
-      // 设置 Python 环境设置事件监听
-      pythonManager.on('setup-start', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'setup-start', message: data.message });
-      });
-      
-      pythonManager.on('extract-progress', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'extract-progress', message: data.message });
-      });
-      
-      pythonManager.on('extract-complete', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'extract-complete', message: data.message });
-      });
-
-      pythonManager.on('setup-pip', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'setup-pip', message: data.message });
-      });
-
-      pythonManager.on('pip-ready', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'pip-ready', message: data.message });
-      });
-
-      pythonManager.on('setup-complete', (data) => {
-        mainWindow.webContents.send('python-setup', { stage: 'setup-complete', message: data.message });
-      });
-
-      appManager.on('launch-app-end', (data) => {
-        mainWindow.webContents.send('launch-app-end', {message: data.message});
-      });
-
-      appManager.on('launch-app-status', (data) => {
-        mainWindow.webContents.send('launch-app-status', {message: data.message});
-      });
-    }
+  // 设置下载进度事件监听
+  if (mainWindow){
+    console.log('设置事件监听器...');
     
+    downloader.on('progress', (progress) => {
+      mainWindow.webContents.send('download-progress', progress.progress);
+    });
+    
+    // 设置安装进度事件监听
+    pythonManager.on('install-progress', (data) => {
+      mainWindow.webContents.send('install-progress', data.output);
+    });
+
+    // pip 源速度测试事件监听
+    pythonManager.on('speed-test-start', (data) => {
+      mainWindow.webContents.send('install-progress', data.message);
+    });
+
+    pythonManager.on('speed-test-progress', (data) => {
+      mainWindow.webContents.send('install-progress', data.message);
+    });
+
+    pythonManager.on('speed-test-complete', (data) => {
+      mainWindow.webContents.send('install-progress', data.message);
+    });
+    
+    // 设置 Python 环境设置事件监听
+    pythonManager.on('setup-start', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'setup-start', message: data.message });
+    });
+    
+    pythonManager.on('extract-progress', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'extract-progress', message: data.message });
+    });
+    
+    pythonManager.on('extract-complete', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'extract-complete', message: data.message });
+    });
+
+    pythonManager.on('setup-pip', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'setup-pip', message: data.message });
+    });
+
+    pythonManager.on('pip-ready', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'pip-ready', message: data.message });
+    });
+
+    pythonManager.on('setup-complete', (data) => {
+      mainWindow.webContents.send('python-setup', { stage: 'setup-complete', message: data.message });
+    });
+
+    appManager.on('launch-app-end', (data) => {
+      mainWindow.webContents.send('launch-app-end', {message: data.message});
+    });
+
+    appManager.on('launch-app-status', (data) => {
+      mainWindow.webContents.send('launch-app-status', {message: data.message});
+    });
+    
+    console.log('事件监听器设置完成');
+  } else {
+    console.error('mainWindow 为 null，无法设置事件监听器');
+  }
+  
+  try {
     // 设置IPC处理程序
+    console.log('设置IPC处理程序...');
     setupIpcHandlers();
-  });
+    console.log('IPC处理程序设置完成');
+  } catch (error) {
+    console.error('设置IPC处理程序失败:', error);
+    console.error('错误堆栈:', error.stack);
+  }
+  
+  console.log('app.whenReady 处理完成');
+}).catch((error) => {
+  console.error('app.whenReady 处理过程中发生未捕获的错误:', error);
+  console.error('错误堆栈:', error.stack);
+});
 
 // 所有窗口关闭时退出应用
 app.on('window-all-closed', () => {
+  console.log('所有窗口已关闭');
   // 停止认证服务器
   stopAuthServer();
   
   if (process.platform !== 'darwin') {
+    console.log('退出应用...');
     app.quit();
   }
 });
 
 // 应用退出前清理
 app.on('before-quit', () => {
+  console.log('应用即将退出，执行清理...');
   stopAuthServer();
+});
+
+// 监听应用激活事件（macOS）
+app.on('activate', () => {
+  console.log('应用被激活');
+  if (BrowserWindow.getAllWindows().length === 0) {
+    console.log('没有窗口，创建新窗口');
+    createWindow();
+  }
 });
 
 // 设置IPC处理程序
 function setupIpcHandlers() {
+  console.log('开始设置IPC处理程序...');
+  
   // 窗口控制
   ipcMain.on('minimize-window', () => {
     if (mainWindow) {
@@ -262,18 +371,32 @@ function setupIpcHandlers() {
       throw new Error(`安装Python环境失败: ${error.message}`);
     }
   });
-  
-  ipcMain.handle('check-manual-update-whl', async () => {
+
+  // 打开文件选择器选择 whl 文件
+  ipcMain.handle('select-whl-file', async () => {
     try {
-      return await appManager.checkManualUpdateWhl();
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择 whl 安装包',
+        filters: [
+          { name: 'Python Wheel 包', extensions: ['whl'] },
+          { name: '所有文件', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+      
+      if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+      }
+      
+      return null;
     } catch (error) {
-      throw new Error(`检查手动更新包失败: ${error.message}`);
+      throw new Error(`选择文件失败: ${error.message}`);
     }
   });
 
-  ipcMain.handle('install-whl', async (_, wheelPath) => {
+  ipcMain.handle('install-whl', async (_, wheelPath, deleteWheel = true) => {
     try {
-      return await appManager.installWhl(wheelPath);
+      return await appManager.installWhl(wheelPath, deleteWheel);
     } catch (error) {
       throw new Error(`安装更新包失败: ${error.message}`);
     }
@@ -314,6 +437,10 @@ function setupIpcHandlers() {
 
   ipcMain.handle('open-scripts-folder', async () => {
     return await scriptManager.openScriptsFolder();
+  });
+
+  ipcMain.handle('open-logs-folder', async () => {
+    return await appManager.openLogsFolder();
   });
 
 

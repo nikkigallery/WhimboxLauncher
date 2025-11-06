@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { app } = require('electron');
+const { app, shell } = require('electron');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const { EventEmitter } = require('events');
@@ -79,35 +79,10 @@ class AppManager extends EventEmitter {
   }
 
   /**
-   * 检查downloads目录下是否有手动更新包
-   * @returns {Promise<Object>} 最新的更新包路径
-   */
-  async checkManualUpdateWhl() {
-    const currentVersion = this.appStatus.version;
-    const downloadDir = downloader.getDownloadDirectory();
-    const files = fs.readdirSync(downloadDir);
-    let maxVersionFile = null;
-    let maxVersion = currentVersion ? currentVersion : '0.0.0';
-    for (const file of files) {
-      if (file.endsWith('.whl')) {
-        const packageInfo = this.extractPackageInfo(file);
-        if (packageInfo.version > maxVersion) {
-          maxVersion = packageInfo.version;
-          maxVersionFile = file;
-        }
-      }
-    }
-    if (maxVersionFile) {
-      return path.join(downloadDir, maxVersionFile);
-    }
-    return null;
-  }
-
-  /**
    * 安装更新包
    * @returns {Promise<Object>} 安装结果
    */
-  async installWhl(wheelPath) {
+  async installWhl(wheelPath, deleteWheel = true) {
     try {
       if (wheelPath) {
         // 安装wheel包
@@ -119,8 +94,7 @@ class AppManager extends EventEmitter {
         
         // 初始化app
         const entryPoint = packageInfo.name.replace(/-/g, '_')
-        const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, entryPoint + '.exe')
-        await pythonManager.runCommand(entryPointPath, ['init'], true)
+        await pythonManager.runCommand(pythonManager.embeddedPythonPath, ['-s', '-m', `${entryPoint}.main`, 'init'], true)
 
         // 更新应用状态
         this.appStatus = {
@@ -133,7 +107,9 @@ class AppManager extends EventEmitter {
         this.saveAppStatus();
 
         // 删除安装包
-        fs.unlinkSync(wheelPath);
+        if (deleteWheel) {
+          fs.unlinkSync(wheelPath);
+        }
         
         return {
           success: true,
@@ -167,7 +143,7 @@ class AppManager extends EventEmitter {
       });
       
       // 安装wheel包
-      await this.installWhl(wheelPath);
+      await this.installWhl(wheelPath, true);
     } catch (error) {
       throw new Error(`下载并安装失败: ${error.message}`);
     }
@@ -225,8 +201,7 @@ class AppManager extends EventEmitter {
       
       // 启动Python应用
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
-      const entryPointPath = path.join(pythonManager.embeddedPythonScriptsDir, this.appStatus.entryPoint + '.exe')
-      this.appProcess = spawn(entryPointPath, {
+      this.appProcess = spawn(pythonManager.embeddedPythonPath, ['-s', '-m', `${this.appStatus.entryPoint}.main`], {
         windowsHide: true,
       });
 
@@ -290,6 +265,18 @@ class AppManager extends EventEmitter {
       return { success: true };
     } catch (error) {
       throw new Error(`停止应用失败: ${error.message}`);
+    }
+  }
+
+  async openLogsFolder() {
+    try {
+      const logsDir = path.join(this.appDataDir, 'logs');
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      await shell.openPath(logsDir);
+    } catch (error) {
+      throw new Error(`打开日志文件夹失败: ${error.message}`);
     }
   }
 }

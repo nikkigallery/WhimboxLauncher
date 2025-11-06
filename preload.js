@@ -9,6 +9,8 @@ const originalConsole = {
   debug: console.debug
 };
 
+console.log('[Preload] 保存原始 console 方法完成');
+
 // 重写 console.log
 const mylogger = {
   log : (...args) => {
@@ -33,10 +35,15 @@ const mylogger = {
   }
 };
 
+console.log('[Preload] 创建 mylogger 对象完成');
+
 // 暴露给渲染进程的API
-contextBridge.exposeInMainWorld('electronAPI', {
-  // 日志
-  mylogger: mylogger,
+console.log('[Preload] 开始暴露 electronAPI 到主世界...');
+
+try {
+  contextBridge.exposeInMainWorld('electronAPI', {
+    // 日志
+    mylogger: mylogger,
   
   // 获取资源路径
   getAssetPath: () => {
@@ -62,8 +69,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
   
   // 更新和安装
-  checkManualUpdateWhl: () => ipcRenderer.invoke('check-manual-update-whl'),
-  installWhl: (wheelPath) => ipcRenderer.invoke('install-whl', wheelPath),
+  selectWhlFile: () => ipcRenderer.invoke('select-whl-file'),
+  installWhl: (wheelPath, deleteWheel = true) => ipcRenderer.invoke('install-whl', wheelPath, deleteWheel),
   downloadAndInstallWhl: (url, md5) => ipcRenderer.invoke('download-and-install-whl', url, md5),
   
   // 应用状态和控制
@@ -72,7 +79,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopApp: () => ipcRenderer.invoke('stop-app'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openScriptsFolder: () => ipcRenderer.invoke('open-scripts-folder'),
-  
+  openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
 
   // 脚本订阅管理
   updateSubscribedScripts: (scriptsData) => ipcRenderer.invoke('update-subscribed-scripts', scriptsData),
@@ -110,3 +117,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('auth-callback', (_, data) => callback(data));
   },
 });
+
+  console.log('[Preload] electronAPI 暴露成功');
+} catch (error) {
+  console.error('[Preload] 暴露 electronAPI 失败:', error);
+  console.error('[Preload] 错误堆栈:', error.stack);
+}
+
+console.log('[Preload] Preload 脚本执行完成');
