@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { app } = require('electron');
+const { app, shell } = require('electron');
 const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const { EventEmitter } = require('events');
@@ -290,6 +290,18 @@ class AppManager extends EventEmitter {
       return { success: true };
     } catch (error) {
       throw new Error(`停止应用失败: ${error.message}`);
+    }
+  }
+
+  async openLogsFolder() {
+    try {
+      const logsDir = path.join(this.appDataDir, 'logs');
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      await shell.openPath(logsDir);
+    } catch (error) {
+      throw new Error(`打开日志文件夹失败: ${error.message}`);
     }
   }
 }

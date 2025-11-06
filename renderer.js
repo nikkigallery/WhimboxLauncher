@@ -42,7 +42,8 @@ const elements = {
   launchMenuBtn: document.getElementById('launch-menu-btn'),
   launchMenuPopup: document.getElementById('launch-menu-popup'),
   stopAppBtn: document.getElementById('stop-app-btn'),
-  openScriptsFolderBtn: document.getElementById('open-scripts-folder-btn')
+  openScriptsFolderBtn: document.getElementById('open-scripts-folder-btn'),
+  openLogsFolderBtn: document.getElementById('open-logs-folder-btn')
 };
 
 // ==================== 标题栏功能 ====================
@@ -106,6 +107,17 @@ elements.openScriptsFolderBtn.addEventListener('click', async () => {
   } catch (error) {
     api.mylogger.error('打开路线文件夹失败:', error);
     customAlert(`打开路线文件夹失败：${error.message}`);
+  }
+});
+
+// 打开日志文件夹按钮
+elements.openLogsFolderBtn.addEventListener('click', async () => {
+  elements.launchMenuPopup.classList.remove('show');
+  try {
+    await api.openLogsFolder();
+  } catch (error) {
+    api.mylogger.error('打开日志文件夹失败:', error);
+    customAlert(`打开日志文件夹失败：${error.message}`);
   }
 });
 
