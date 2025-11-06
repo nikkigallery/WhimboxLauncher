@@ -22,6 +22,13 @@ class PythonManager extends EventEmitter {
     this.embeddedPythonDir = path.join(appDir, 'python-embedded');
     this.embeddedPythonPath = path.join(this.embeddedPythonDir, 'python.exe');
     this.embeddedPythonScriptsDir = path.join(this.embeddedPythonDir, 'Scripts');
+    this.env = {
+      ...process.env,
+      PYTHONNOUSERSITE: '1',
+      PYTHONPATH: '',
+      PATH: `${this.embeddedPythonDir};${this.embeddedPythonScriptsDir};${process.env.PATH}`,
+      PYTHONHOME: this.embeddedPythonDir
+    };
   }
 
   /**
@@ -435,7 +442,8 @@ class PythonManager extends EventEmitter {
       // Windows 下不使用 shell: true，直接传递参数可以正确处理带空格的路径
       // spawn 会自动处理参数中的特殊字符和空格
       const process = spawn(command, args, {
-        windowsHide: true // Windows 下隐藏控制台窗口
+        windowsHide: true, // Windows 下隐藏控制台窗口
+        env: this.env // 使用自定义环境变量
       });
       
       let stdout = '';
