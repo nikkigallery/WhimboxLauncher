@@ -79,35 +79,10 @@ class AppManager extends EventEmitter {
   }
 
   /**
-   * 检查downloads目录下是否有手动更新包
-   * @returns {Promise<Object>} 最新的更新包路径
-   */
-  async checkManualUpdateWhl() {
-    const currentVersion = this.appStatus.version;
-    const downloadDir = downloader.getDownloadDirectory();
-    const files = fs.readdirSync(downloadDir);
-    let maxVersionFile = null;
-    let maxVersion = currentVersion ? currentVersion : '0.0.0';
-    for (const file of files) {
-      if (file.endsWith('.whl')) {
-        const packageInfo = this.extractPackageInfo(file);
-        if (packageInfo.version > maxVersion) {
-          maxVersion = packageInfo.version;
-          maxVersionFile = file;
-        }
-      }
-    }
-    if (maxVersionFile) {
-      return path.join(downloadDir, maxVersionFile);
-    }
-    return null;
-  }
-
-  /**
    * 安装更新包
    * @returns {Promise<Object>} 安装结果
    */
-  async installWhl(wheelPath) {
+  async installWhl(wheelPath, deleteWheel = true) {
     try {
       if (wheelPath) {
         // 安装wheel包
@@ -132,7 +107,9 @@ class AppManager extends EventEmitter {
         this.saveAppStatus();
 
         // 删除安装包
-        fs.unlinkSync(wheelPath);
+        if (deleteWheel) {
+          fs.unlinkSync(wheelPath);
+        }
         
         return {
           success: true,
@@ -166,7 +143,7 @@ class AppManager extends EventEmitter {
       });
       
       // 安装wheel包
-      await this.installWhl(wheelPath);
+      await this.installWhl(wheelPath, true);
     } catch (error) {
       throw new Error(`下载并安装失败: ${error.message}`);
     }

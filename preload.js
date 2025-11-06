@@ -69,8 +69,8 @@ try {
   setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
   
   // 更新和安装
-  checkManualUpdateWhl: () => ipcRenderer.invoke('check-manual-update-whl'),
-  installWhl: (wheelPath) => ipcRenderer.invoke('install-whl', wheelPath),
+  selectWhlFile: () => ipcRenderer.invoke('select-whl-file'),
+  installWhl: (wheelPath, deleteWheel = true) => ipcRenderer.invoke('install-whl', wheelPath, deleteWheel),
   downloadAndInstallWhl: (url, md5) => ipcRenderer.invoke('download-and-install-whl', url, md5),
   
   // 应用状态和控制

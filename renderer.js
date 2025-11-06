@@ -12,7 +12,6 @@ let appState = {
   pythonReady: false,
   appInstalled: false,
   autoUpdateAvailable: false,
-  manualUpdateAvailable: false,
   isProcessing: false
 };
 
@@ -41,6 +40,7 @@ const elements = {
   launchBtn: document.getElementById('launch-btn'),
   launchMenuBtn: document.getElementById('launch-menu-btn'),
   launchMenuPopup: document.getElementById('launch-menu-popup'),
+  manualUpdateBtn: document.getElementById('manual-update-btn'),
   stopAppBtn: document.getElementById('stop-app-btn'),
   openScriptsFolderBtn: document.getElementById('open-scripts-folder-btn'),
   openLogsFolderBtn: document.getElementById('open-logs-folder-btn')
@@ -83,6 +83,42 @@ document.addEventListener('click', (event) => {
   if (!elements.launchMenuPopup.contains(event.target) && 
       event.target !== elements.launchMenuBtn) {
     elements.launchMenuPopup.classList.remove('show');
+  }
+});
+
+// 手动更新按钮
+elements.manualUpdateBtn.addEventListener('click', async () => {
+  elements.launchMenuPopup.classList.remove('show');
+  try {
+    // 打开文件选择器
+    const whlPath = await api.selectWhlFile();
+    if (whlPath) {
+      api.mylogger.log('选择的 whl 文件:', whlPath);
+      
+      // 安装选择的 whl 包
+      appState.isProcessing = true;
+      elements.launchBtn.disabled = true;
+      updateButtonState('disabled', '手动更新中...');
+      showProgress('正在安装更新...', 0);
+      
+      try {
+        await api.installWhl(whlPath, false);
+        await checkState();
+        customAlert('手动更新安装成功');
+      } catch (error) {
+        api.mylogger.error('手动更新安装失败:', error);
+        customAlert(`手动更新安装失败：${error.message}`);
+      } finally {
+        hideProgress();
+        appState.isProcessing = false;
+        elements.launchBtn.disabled = false;
+      }
+    } else {
+      api.mylogger.log('用户取消选择文件');
+    }
+  } catch (error) {
+    api.mylogger.error('选择文件失败:', error);
+    customAlert(`选择文件失败：${error.message}`);
   }
 });
 
@@ -137,11 +173,6 @@ elements.launchBtn.addEventListener('click', async () => {
   } else if (appState.autoUpdateAvailable) {
     // 自动更新
     await autoUpdate();
-    appState.isProcessing = false;
-    elements.launchBtn.disabled = false;
-  } else if (appState.manualUpdateAvailable) {
-    // 手动更新
-    await manualUpdate();
     appState.isProcessing = false;
     elements.launchBtn.disabled = false;
   } else if (appState.appInstalled) {
@@ -301,26 +332,6 @@ async function autoUpdate() {
   }
 }
 
-async function manualUpdate() {
-  try {
-    updateButtonState('disabled', '安装中...');
-    showProgress('安装更新中...', 0);
-    const whlPath = await api.checkManualUpdateWhl();
-    if (whlPath) {
-      await api.installWhl(whlPath);
-      await checkState();
-    } else {
-      throw new Error('没有找到更新包');
-    }
-  } catch (error) {
-    updateButtonState('updating', '重新安装');
-    elements.updateStatus.textContent = '安装失败';
-    customAlert(`手动更新失败：${error.message}`);
-  } finally {
-    hideProgress();
-  }
-}
-
 // 启动应用
 async function launchApplication() {
   try {
@@ -406,14 +417,12 @@ function updateMainButton(){
     updateButtonState('installing', '安装环境');
   } else if (appState.autoUpdateAvailable) {
     updateButtonState('updating', '自动更新');
-  } else if (appState.manualUpdateAvailable) {
-    updateButtonState('updating', '安装更新');
-  } else if (appState.appInstalled && !appState.manualUpdateAvailable) {
+  } else if (appState.appInstalled) {
     updateButtonState('ready', '一键启动');
-  } else if (!appState.isLogin && !appState.manualUpdateAvailable){
-    updateButtonState('disabled', '请先登录');
-  } else if (!appState.isVip && !appState.manualUpdateAvailable){
-    updateButtonState('disabled', '请先开通会员');
+  } else if (!appState.isLogin){
+    updateButtonState('disabled', '未登录');
+  } else if (!appState.isVip){
+    updateButtonState('disabled', '未开通自动更新');
   }
 }
 
@@ -544,7 +553,6 @@ async function checkState(){
   appState.pythonReady = false;
   appState.appInstalled = false;
   appState.autoUpdateAvailable = false;
-  appState.manualUpdateAvailable = false;
   // 检查Python环境
   try {
     elements.pythonStatus.textContent = '检测中...';
@@ -588,12 +596,6 @@ async function checkState(){
   } else{
     appState.autoUpdateAvailable = false;
     elements.updateStatus.textContent = '未登录，无法检测';
-  }
-
-  const manualUpdateWhl = await api.checkManualUpdateWhl();
-  if (manualUpdateWhl && !appState.autoUpdateAvailable) {
-    appState.manualUpdateAvailable = true;
-    elements.updateStatus.textContent = '有手动更新包';
   }
 
   updateMainButton();

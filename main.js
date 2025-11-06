@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const logger = require('./logger'); // 引入日志模块（必须在最前面初始化）
@@ -371,18 +371,32 @@ function setupIpcHandlers() {
       throw new Error(`安装Python环境失败: ${error.message}`);
     }
   });
-  
-  ipcMain.handle('check-manual-update-whl', async () => {
+
+  // 打开文件选择器选择 whl 文件
+  ipcMain.handle('select-whl-file', async () => {
     try {
-      return await appManager.checkManualUpdateWhl();
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择 whl 安装包',
+        filters: [
+          { name: 'Python Wheel 包', extensions: ['whl'] },
+          { name: '所有文件', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+      
+      if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+      }
+      
+      return null;
     } catch (error) {
-      throw new Error(`检查手动更新包失败: ${error.message}`);
+      throw new Error(`选择文件失败: ${error.message}`);
     }
   });
 
-  ipcMain.handle('install-whl', async (_, wheelPath) => {
+  ipcMain.handle('install-whl', async (_, wheelPath, deleteWheel = true) => {
     try {
-      return await appManager.installWhl(wheelPath);
+      return await appManager.installWhl(wheelPath, deleteWheel);
     } catch (error) {
       throw new Error(`安装更新包失败: ${error.message}`);
     }
