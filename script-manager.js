@@ -305,11 +305,6 @@ class ScriptManager extends EventEmitter {
    */
     async openScriptsFolder() {
       try {
-        // 确保文件夹存在
-        if (!fs.existsSync(this.scriptsDir)) {
-          fs.mkdirSync(this.scriptsDir, { recursive: true });
-        }
-        // 打开文件夹
         await shell.openPath(this.scriptsDir);
       } catch (error) {
         console.error('打开脚本文件夹失败:', error);

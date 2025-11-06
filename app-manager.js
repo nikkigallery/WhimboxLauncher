@@ -18,10 +18,14 @@ class AppManager extends EventEmitter {
     
     // 应用数据目录
     this.appDataDir = path.join(appDir, 'app-data');
+    this.logsDir = path.join(appDir, 'logs');
     
     // 确保目录存在
     if (!fs.existsSync(this.appDataDir)) {
       fs.mkdirSync(this.appDataDir, { recursive: true });
+    }
+    if (!fs.existsSync(this.logsDir)) {
+      fs.mkdirSync(this.logsDir, { recursive: true });
     }
     
     // 应用状态文件路径
@@ -281,11 +285,7 @@ class AppManager extends EventEmitter {
 
   async openLogsFolder() {
     try {
-      const logsDir = path.join(this.appDataDir, 'logs');
-      if (!fs.existsSync(logsDir)) {
-        fs.mkdirSync(logsDir, { recursive: true });
-      }
-      await shell.openPath(logsDir);
+      await shell.openPath(this.logsDir);
     } catch (error) {
       throw new Error(`打开日志文件夹失败: ${error.message}`);
     }
