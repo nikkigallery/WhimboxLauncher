@@ -44,79 +44,68 @@ try {
   contextBridge.exposeInMainWorld('electronAPI', {
     // 日志
     mylogger: mylogger,
-  
-  // 获取资源路径
-  getAssetPath: () => {
-    // 开发环境用相对路径，生产环境用绝对路径
-    if (process.env.NODE_ENV === 'development') {
-      return './assets/bg.jpg';
-    } else {
-      // 生产环境，资源在 app.asar 同级的 resources/assets 目录
-      return 'file:///resources/assets/bg.jpg';
-    }
-  },
 
-  // 窗口控制
-  minimizeWindow: () => ipcRenderer.send('minimize-window'),
-  closeWindow: () => ipcRenderer.send('close-window'),
-  openExternal: (url) => ipcRenderer.send('open-external', url),
-  
-  // 认证服务器
-  getAuthPort: () => ipcRenderer.invoke('get-auth-port'),
-  
-  // Python环境
-  detectPythonEnvironment: () => ipcRenderer.invoke('detect-python'),
-  setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
-  
-  // 更新和安装
-  selectWhlFile: () => ipcRenderer.invoke('select-whl-file'),
-  installWhl: (wheelPath, deleteWheel = true) => ipcRenderer.invoke('install-whl', wheelPath, deleteWheel),
-  downloadAndInstallWhl: (url, md5) => ipcRenderer.invoke('download-and-install-whl', url, md5),
-  
-  // 应用状态和控制
-  getAppStatus: () => ipcRenderer.invoke('get-app-status'),
-  launchApp: () => ipcRenderer.invoke('launch-app'),
-  stopApp: () => ipcRenderer.invoke('stop-app'),
-  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  openScriptsFolder: () => ipcRenderer.invoke('open-scripts-folder'),
-  openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
+    // 窗口控制
+    minimizeWindow: () => ipcRenderer.send('minimize-window'),
+    closeWindow: () => ipcRenderer.send('close-window'),
+    openExternal: (url) => ipcRenderer.send('open-external', url),
+    
+    // 认证服务器
+    getAuthPort: () => ipcRenderer.invoke('get-auth-port'),
+    
+    // Python环境
+    detectPythonEnvironment: () => ipcRenderer.invoke('detect-python'),
+    setupPythonEnvironment: () => ipcRenderer.invoke('setup-python'),
+    
+    // 更新和安装
+    selectWhlFile: () => ipcRenderer.invoke('select-whl-file'),
+    installWhl: (wheelPath, deleteWheel = true) => ipcRenderer.invoke('install-whl', wheelPath, deleteWheel),
+    downloadAndInstallWhl: (url, md5) => ipcRenderer.invoke('download-and-install-whl', url, md5),
+    
+    // 应用状态和控制
+    getAppStatus: () => ipcRenderer.invoke('get-app-status'),
+    launchApp: () => ipcRenderer.invoke('launch-app'),
+    stopApp: () => ipcRenderer.invoke('stop-app'),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    openScriptsFolder: () => ipcRenderer.invoke('open-scripts-folder'),
+    openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
 
-  // 脚本订阅管理
-  updateSubscribedScripts: (scriptsData) => ipcRenderer.invoke('update-subscribed-scripts', scriptsData),
-  getScriptsMetadata: () => ipcRenderer.invoke('get-scripts-metadata'),
+    // 脚本订阅管理
+    updateSubscribedScripts: (scriptsData) => ipcRenderer.invoke('update-subscribed-scripts', scriptsData),
+    getScriptsMetadata: () => ipcRenderer.invoke('get-scripts-metadata'),
 
-  // 事件监听
-  onDownloadProgress: (callback) => {
-    ipcRenderer.on('download-progress', (_, progress) => callback(progress));
-  },
-  onInstallProgress: (callback) => {
-    ipcRenderer.on('install-progress', (_, message) => callback(message));
-  },
-  onPythonSetup: (callback) => {
-    ipcRenderer.on('python-setup', (_, data) => callback(data));
-  },
-  onLaunchAppStatus: (callback) => {
-    ipcRenderer.on('launch-app-status', (_, data) => callback(data));
-  },
-  onLaunchAppEnd: (callback) => {
-    ipcRenderer.on('launch-app-end', (_, data) => callback(data));
-  },
-  onScriptDownloaded: (callback) => {
-    ipcRenderer.on('script-downloaded', (_, data) => callback(data));
-  },
-  onScriptDownloadError: (callback) => {
-    ipcRenderer.on('script-download-error', (_, data) => callback(data));
-  },
-  onScriptUpdateComplete: (callback) => {
-    ipcRenderer.on('script-update-complete', (_, data) => callback(data));
-  },
-  onScriptUpdateError: (callback) => {
-    ipcRenderer.on('script-update-error', (_, data) => callback(data));
-  },
-  onAuthCallback: (callback) => {
-    ipcRenderer.on('auth-callback', (_, data) => callback(data));
-  },
-});
+    // 事件监听
+    onDownloadProgress: (callback) => {
+      ipcRenderer.on('download-progress', (_, progress) => callback(progress));
+    },
+    onInstallProgress: (callback) => {
+      ipcRenderer.on('install-progress', (_, message) => callback(message));
+    },
+    onPythonSetup: (callback) => {
+      ipcRenderer.on('python-setup', (_, data) => callback(data));
+    },
+    onLaunchAppStatus: (callback) => {
+      ipcRenderer.on('launch-app-status', (_, data) => callback(data));
+    },
+    onLaunchAppEnd: (callback) => {
+      ipcRenderer.on('launch-app-end', (_, data) => callback(data));
+    },
+    onScriptDownloaded: (callback) => {
+      ipcRenderer.on('script-downloaded', (_, data) => callback(data));
+    },
+    onScriptDownloadError: (callback) => {
+      ipcRenderer.on('script-download-error', (_, data) => callback(data));
+    },
+    onScriptUpdateComplete: (callback) => {
+      ipcRenderer.on('script-update-complete', (_, data) => callback(data));
+    },
+    onScriptUpdateError: (callback) => {
+      ipcRenderer.on('script-update-error', (_, data) => callback(data));
+    },
+    onAuthCallback: (callback) => {
+      ipcRenderer.on('auth-callback', (_, data) => callback(data));
+    },
+  });
 
   console.log('[Preload] electronAPI 暴露成功');
 } catch (error) {

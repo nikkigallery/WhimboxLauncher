@@ -6,6 +6,7 @@ const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
 const scriptManager = require('./script-manager');
+const { pathToFileURL } = require('url');
 
 // 主窗口引用
 let mainWindow;
@@ -25,10 +26,12 @@ const createWindow = () => {
       frame: false, // 隐藏默认标题栏
       transparent: false,
       resizable: false,
+      show: false,
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
+        webSecurity: false,
       },
       icon: path.join(__dirname, 'assets', 'icon.ico')
     });
@@ -43,6 +46,7 @@ const createWindow = () => {
 
     mainWindow.on('ready-to-show', () => {
       console.log('主窗口准备就绪，可以显示');
+      mainWindow.show();
     });
 
     mainWindow.webContents.on('did-start-loading', () => {
@@ -66,7 +70,9 @@ const createWindow = () => {
     });
 
     console.log('开始加载 index.html...');
-    mainWindow.loadFile('index.html')
+    const indexPath = path.join(__dirname, 'index.html');
+    console.log('loadurl:', pathToFileURL(indexPath).toString());
+    mainWindow.loadURL(pathToFileURL(indexPath).toString(), { reloadIgnoringCache: true })
       .then(() => {
         console.log('index.html 加载请求已发送');
       })
