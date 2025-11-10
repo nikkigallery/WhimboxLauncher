@@ -221,7 +221,7 @@ class AppManager extends EventEmitter {
         });
 
       this.appProcess.stdout.on('data', (data) => {
-        const output = data.toString();
+        const output = data.toString('utf-8');
         if(output.includes('WAIT_FOR_GAME_START')) {
           this.emit('launch-app-status', {message: "等待游戏启动"});
         } else if(output.includes('GAME_STARTED')) {
@@ -232,10 +232,16 @@ class AppManager extends EventEmitter {
       });
 
       // 监听进程错误
+      this.appProcess.stderr.on('data', (data) => {
+        const output = data.toString('utf-8');
+        console.error(`运行异常: ${output}`);
+      });
+      
+
       this.appProcess.on('error', (error) => {
         console.error(`运行异常: ${error.message}`);
       });
-      
+
       // 监听进程退出
       this.appProcess.on('close', code => {
         console.log(`进程退出, 代码: ${code}`);
