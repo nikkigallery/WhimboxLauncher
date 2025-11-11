@@ -49,66 +49,78 @@ const createWindow = () => {
   }
 };
 
+// 认证服务器请求处理函数
+function handleAuthRequest(req, res) {
+  const url = new URL(req.url, `http://localhost:${authPort}`);
+  console.log(`收到HTTP请求: ${req.method} ${url.pathname}`);
+  
+  if (url.pathname === '/auth/callback') {
+    const refreshToken = url.searchParams.get('refresh_token');
+    
+    if (refreshToken) {
+      console.log('收到refresh_token:', refreshToken);
+      
+      // 发送refresh_token到渲染进程
+      if (mainWindow) {
+        mainWindow.webContents.send('auth-callback', { refreshToken });
+      }
+      
+      // 返回成功页面
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
+    } else {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Missing refresh_token');
+    }
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+  }
+}
+
 // 启动认证服务器
 function startAuthServer() {
   console.log('准备启动认证服务器...');
   return new Promise((resolve, reject) => {
     try {
-      authServer = http.createServer((req, res) => {
-        const url = new URL(req.url, `http://localhost:${authPort}`);
-        console.log(`收到HTTP请求: ${req.method} ${url.pathname}`);
-        
-        if (url.pathname === '/auth/callback') {
-          const refreshToken = url.searchParams.get('refresh_token');
-          
-          if (refreshToken) {
-            console.log('收到refresh_token:', refreshToken);
-            
-            // 发送refresh_token到渲染进程
-            if (mainWindow) {
-              mainWindow.webContents.send('auth-callback', { refreshToken });
-            }
-            
-            // 返回成功页面
-            res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
-          } else {
-            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Missing refresh_token');
-          }
-        } else {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('Not Found');
-        }
-      });
+      // 创建HTTP服务器
+      const createServer = () => {
+        authServer = http.createServer(handleAuthRequest);
+      };
       
+      createServer();
       console.log('HTTP服务器对象创建成功');
       
       // 尝试从8080端口开始，如果被占用则递增
       let port = 8080;
       const tryStart = () => {
         console.log(`尝试在端口 ${port} 启动认证服务器...`);
-        authServer.listen(port, 'localhost', (err) => {
-          if (err) {
-            console.warn(`端口 ${port} 启动失败:`, err.message);
-            if (err.code === 'EADDRINUSE') {
-              port++;
-              if (port < 8090) { // 最多尝试到8089
-                tryStart();
-              } else {
-                const error = new Error('无法找到可用端口');
-                console.error(error.message);
-                reject(error);
-              }
+        
+        // 添加错误事件监听器，用于捕获端口占用错误
+        authServer.once('error', (err) => {
+          console.warn(`端口 ${port} 启动失败:`, err.message);
+          if (err.code === 'EADDRINUSE') {
+            port++;
+            if (port < 8090) { // 最多尝试到8089
+              // 移除旧的监听器，创建新的服务器实例
+              authServer.removeAllListeners();
+              createServer();
+              tryStart();
             } else {
-              console.error('启动认证服务器出错:', err);
-              reject(err);
+              const error = new Error('无法找到可用端口');
+              console.error(error.message);
+              reject(error);
             }
           } else {
-            authPort = port;
-            console.log(`认证服务器已启动，端口: ${authPort}`);
-            resolve(port);
+            console.error('启动认证服务器出错:', err);
+            reject(err);
           }
+        });
+        
+        authServer.listen(port, '127.0.0.1', () => {
+          authPort = port;
+          console.log(`认证服务器已启动，端口: ${authPort}`);
+          resolve(port);
         });
       };
       
