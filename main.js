@@ -12,6 +12,28 @@ app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 
+// 单实例检查 - 防止应用重复运行
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // 没有获得锁，说明已有实例在运行，直接退出
+  console.log('应用已在运行，退出当前实例');
+  app.quit();
+} else {
+  // 获得了锁，监听第二个实例启动事件
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('检测到第二个实例尝试启动，聚焦到现有窗口');
+    // 如果窗口存在，聚焦它
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+      mainWindow.show();
+    }
+  });
+}
+
 // 主窗口引用
 let mainWindow;
 let authServer = null;
