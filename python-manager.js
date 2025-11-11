@@ -27,7 +27,9 @@ class PythonManager extends EventEmitter {
       PYTHONNOUSERSITE: '1',
       PYTHONPATH: '',
       PATH: `${this.embeddedPythonDir};${this.embeddedPythonScriptsDir};${process.env.PATH}`,
-      PYTHONHOME: this.embeddedPythonDir
+      PYTHONHOME: this.embeddedPythonDir,
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
     };
   }
 
@@ -459,7 +461,7 @@ class PythonManager extends EventEmitter {
       }
       
       process.stdout.on('data', (data) => {
-        const output = data.toString();
+        const output = data.toString('utf-8');
         console.log(output);
         stdout += output;
         
@@ -471,7 +473,7 @@ class PythonManager extends EventEmitter {
       });
       
       process.stderr.on('data', (data) => {
-        const output = data.toString();
+        const output = data.toString('utf-8');
         console.error(output);
         stderr += output;
         

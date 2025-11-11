@@ -7,6 +7,33 @@ const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
 const scriptManager = require('./script-manager');
 
+// 避免因为使用Administrator账户运行，引起权限问题，导致加载不了页面，直接梭哈全禁用了
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
+
+// 单实例检查 - 防止应用重复运行
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // 没有获得锁，说明已有实例在运行，直接退出
+  console.log('应用已在运行，退出当前实例');
+  app.quit();
+} else {
+  // 获得了锁，监听第二个实例启动事件
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    console.log('检测到第二个实例尝试启动，聚焦到现有窗口');
+    // 如果窗口存在，聚焦它
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+      mainWindow.show();
+    }
+  });
+}
+
 // 主窗口引用
 let mainWindow;
 let authServer = null;
@@ -15,8 +42,6 @@ let authPort = 0;
 // 创建主窗口
 const createWindow = () => {
   try {
-    console.log('开始创建主窗口...');
-    
     mainWindow = new BrowserWindow({
       width: 800,
       height: 600,
@@ -28,59 +53,17 @@ const createWindow = () => {
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
       },
       icon: path.join(__dirname, 'assets', 'icon.ico')
     });
-
-    console.log('主窗口对象创建成功');
-
-    // 监听窗口事件
-    mainWindow.on('closed', () => {
-      console.log('主窗口已关闭');
-      mainWindow = null;
-    });
-
-    mainWindow.on('ready-to-show', () => {
-      console.log('主窗口准备就绪，可以显示');
-    });
-
-    mainWindow.webContents.on('did-start-loading', () => {
-      console.log('开始加载页面内容');
-    });
-
-    mainWindow.webContents.on('did-finish-load', () => {
-      console.log('页面加载完成');
-    });
-
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      console.error('页面加载失败:', errorCode, errorDescription);
-    });
-
-    mainWindow.webContents.on('crashed', (event, killed) => {
-      console.error('渲染进程崩溃! killed:', killed);
-    });
-
-    mainWindow.on('unresponsive', () => {
-      console.error('窗口无响应');
-    });
-
-    console.log('开始加载 index.html...');
-    mainWindow.loadFile('index.html')
-      .then(() => {
-        console.log('index.html 加载请求已发送');
-      })
-      .catch((error) => {
-        console.error('加载 index.html 失败:', error);
-      });
+    mainWindow.loadFile('index.html');
     
     // 开发环境下打开开发者工具
     if (process.env.NODE_ENV === 'development') {
       console.log('开发环境，打开开发者工具');
       mainWindow.webContents.openDevTools();
     }
-
-    console.log('createWindow 函数执行完成');
   } catch (error) {
     console.error('创建主窗口时发生错误:', error);
     console.error('错误堆栈:', error.stack);
@@ -88,66 +71,78 @@ const createWindow = () => {
   }
 };
 
+// 认证服务器请求处理函数
+function handleAuthRequest(req, res) {
+  const url = new URL(req.url, `http://localhost:${authPort}`);
+  console.log(`收到HTTP请求: ${req.method} ${url.pathname}`);
+  
+  if (url.pathname === '/auth/callback') {
+    const refreshToken = url.searchParams.get('refresh_token');
+    
+    if (refreshToken) {
+      console.log('收到refresh_token:', refreshToken);
+      
+      // 发送refresh_token到渲染进程
+      if (mainWindow) {
+        mainWindow.webContents.send('auth-callback', { refreshToken });
+      }
+      
+      // 返回成功页面
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
+    } else {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Missing refresh_token');
+    }
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+  }
+}
+
 // 启动认证服务器
 function startAuthServer() {
   console.log('准备启动认证服务器...');
   return new Promise((resolve, reject) => {
     try {
-      authServer = http.createServer((req, res) => {
-        const url = new URL(req.url, `http://localhost:${authPort}`);
-        console.log(`收到HTTP请求: ${req.method} ${url.pathname}`);
-        
-        if (url.pathname === '/auth/callback') {
-          const refreshToken = url.searchParams.get('refresh_token');
-          
-          if (refreshToken) {
-            console.log('收到refresh_token:', refreshToken);
-            
-            // 发送refresh_token到渲染进程
-            if (mainWindow) {
-              mainWindow.webContents.send('auth-callback', { refreshToken });
-            }
-            
-            // 返回成功页面
-            res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('奇想盒启动器已经登录成功，你可以关闭该页面');
-          } else {
-            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Missing refresh_token');
-          }
-        } else {
-          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-          res.end('Not Found');
-        }
-      });
+      // 创建HTTP服务器
+      const createServer = () => {
+        authServer = http.createServer(handleAuthRequest);
+      };
       
+      createServer();
       console.log('HTTP服务器对象创建成功');
       
       // 尝试从8080端口开始，如果被占用则递增
       let port = 8080;
       const tryStart = () => {
         console.log(`尝试在端口 ${port} 启动认证服务器...`);
-        authServer.listen(port, 'localhost', (err) => {
-          if (err) {
-            console.warn(`端口 ${port} 启动失败:`, err.message);
-            if (err.code === 'EADDRINUSE') {
-              port++;
-              if (port < 8090) { // 最多尝试到8089
-                tryStart();
-              } else {
-                const error = new Error('无法找到可用端口');
-                console.error(error.message);
-                reject(error);
-              }
+        
+        // 添加错误事件监听器，用于捕获端口占用错误
+        authServer.once('error', (err) => {
+          console.warn(`端口 ${port} 启动失败:`, err.message);
+          if (err.code === 'EADDRINUSE') {
+            port++;
+            if (port < 8090) { // 最多尝试到8089
+              // 移除旧的监听器，创建新的服务器实例
+              authServer.removeAllListeners();
+              createServer();
+              tryStart();
             } else {
-              console.error('启动认证服务器出错:', err);
-              reject(err);
+              const error = new Error('无法找到可用端口');
+              console.error(error.message);
+              reject(error);
             }
           } else {
-            authPort = port;
-            console.log(`认证服务器已启动，端口: ${authPort}`);
-            resolve(port);
+            console.error('启动认证服务器出错:', err);
+            reject(err);
           }
+        });
+        
+        authServer.listen(port, '127.0.0.1', () => {
+          authPort = port;
+          console.log(`认证服务器已启动，端口: ${authPort}`);
+          resolve(port);
         });
       };
       
@@ -172,7 +167,7 @@ function stopAuthServer() {
 // 应用准备就绪时创建窗口
 app.whenReady().then(async () => {
   console.log('应用准备就绪 (app.whenReady)');
-  
+
   try {
     // 启动认证服务器
     console.log('开始启动认证服务器...');
