@@ -6,7 +6,11 @@ const downloader = require('./downloader');
 const pythonManager = require('./python-manager');
 const appManager = require('./app-manager');
 const scriptManager = require('./script-manager');
-const { pathToFileURL } = require('url');
+
+// 避免因为使用Administrator账户运行，引起权限问题，导致加载不了页面，直接梭哈全禁用了
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 
 // 主窗口引用
 let mainWindow;
@@ -16,8 +20,6 @@ let authPort = 0;
 // 创建主窗口
 const createWindow = () => {
   try {
-    console.log('开始创建主窗口...');
-    
     mainWindow = new BrowserWindow({
       width: 800,
       height: 600,
@@ -26,67 +28,20 @@ const createWindow = () => {
       frame: false, // 隐藏默认标题栏
       transparent: false,
       resizable: false,
-      show: false,
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
-        webSecurity: false,
       },
       icon: path.join(__dirname, 'assets', 'icon.ico')
     });
-
-    console.log('主窗口对象创建成功');
-
-    // 监听窗口事件
-    mainWindow.on('closed', () => {
-      console.log('主窗口已关闭');
-      mainWindow = null;
-    });
-
-    mainWindow.on('ready-to-show', () => {
-      console.log('主窗口准备就绪，可以显示');
-      mainWindow.show();
-    });
-
-    mainWindow.webContents.on('did-start-loading', () => {
-      console.log('开始加载页面内容');
-    });
-
-    mainWindow.webContents.on('did-finish-load', () => {
-      console.log('页面加载完成');
-    });
-
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      console.error('页面加载失败:', errorCode, errorDescription);
-    });
-
-    mainWindow.webContents.on('crashed', (event, killed) => {
-      console.error('渲染进程崩溃! killed:', killed);
-    });
-
-    mainWindow.on('unresponsive', () => {
-      console.error('窗口无响应');
-    });
-
-    console.log('开始加载 index.html...');
-    const indexPath = path.join(__dirname, 'index.html');
-    console.log('loadurl:', pathToFileURL(indexPath).toString());
-    mainWindow.loadURL(pathToFileURL(indexPath).toString(), { reloadIgnoringCache: true })
-      .then(() => {
-        console.log('index.html 加载请求已发送');
-      })
-      .catch((error) => {
-        console.error('加载 index.html 失败:', error);
-      });
+    mainWindow.loadFile('index.html');
     
     // 开发环境下打开开发者工具
     if (process.env.NODE_ENV === 'development') {
       console.log('开发环境，打开开发者工具');
       mainWindow.webContents.openDevTools();
     }
-
-    console.log('createWindow 函数执行完成');
   } catch (error) {
     console.error('创建主窗口时发生错误:', error);
     console.error('错误堆栈:', error.stack);
@@ -178,7 +133,7 @@ function stopAuthServer() {
 // 应用准备就绪时创建窗口
 app.whenReady().then(async () => {
   console.log('应用准备就绪 (app.whenReady)');
-  
+
   try {
     // 启动认证服务器
     console.log('开始启动认证服务器...');
