@@ -113,17 +113,17 @@ function startAuthServer() {
       createServer();
       console.log('HTTP服务器对象创建成功');
       
-      // 尝试从8080端口开始，如果被占用则递增
-      let port = 8080;
+      // 尝试从9090端口开始，如果被占用则递增
+      let port = 9090;
       const tryStart = () => {
         console.log(`尝试在端口 ${port} 启动认证服务器...`);
         
         // 添加错误事件监听器，用于捕获端口占用错误
         authServer.once('error', (err) => {
           console.warn(`端口 ${port} 启动失败:`, err.message);
-          if (err.code === 'EADDRINUSE') {
+          if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
             port++;
-            if (port < 8090) { // 最多尝试到8089
+            if (port < 9099) {
               // 移除旧的监听器，创建新的服务器实例
               authServer.removeAllListeners();
               createServer();
