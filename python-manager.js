@@ -198,7 +198,6 @@ class PythonManager extends EventEmitter {
    */
   async testPipSourceSpeed(sourceUrl, timeout = 5000) {
     return new Promise((resolve) => {
-      const startTime = Date.now();
       const urlObj = new URL(sourceUrl);
       const protocol = urlObj.protocol === 'https:' ? https : http;
       
@@ -246,16 +245,13 @@ class PythonManager extends EventEmitter {
           downloadedBytes += chunk.length;
           
           // 下载足够的数据后就可以停止了（比如 50KB 或 2 秒后）
-          const totalElapsed = Date.now() - startTime;
+          const totalElapsed = Date.now() - downloadStartTime;
           if (downloadedBytes >= 50 * 1024 || totalElapsed >= 2000) {
             clearTimeout(timeoutId);
             res.destroy();
-            
-            // 计算下载速度（KB/s）- 只计算实际下载时间
-            const downloadTime = Date.now() - downloadStartTime; // 实际下载耗时
-            const speedKBps = (downloadedBytes / 1024) / (downloadTime / 1000);
-            
-            console.log(`测试 ${sourceUrl}: 下载${(downloadedBytes/1024).toFixed(1)}KB用时${downloadTime}ms, 速度${speedKBps.toFixed(2)}KB/s`);
+            // 计算下载速度（KB/s）
+            const speedKBps = (downloadedBytes / 1024) / (totalElapsed / 1000);
+            console.log(`测试 ${sourceUrl}: 下载${(downloadedBytes/1024).toFixed(1)}KB用时${totalElapsed}ms, 速度${speedKBps.toFixed(2)}KB/s`);
             resolve(speedKBps);
           }
         });
@@ -267,10 +263,9 @@ class PythonManager extends EventEmitter {
             console.log(`测试 ${sourceUrl}: 无数据`);
             resolve(0);
           } else {
-            const downloadTime = Date.now() - downloadStartTime;
-            const speedKBps = (downloadedBytes / 1024) / (downloadTime / 1000);
-            
-            console.log(`测试 ${sourceUrl}: 完成, 下载${(downloadedBytes/1024).toFixed(1)}KB用时${downloadTime}ms, 速度${speedKBps.toFixed(2)}KB/s`);
+            const totalElapsed = Date.now() - downloadStartTime;
+            const speedKBps = (downloadedBytes / 1024) / (totalElapsed / 1000);
+            console.log(`测试 ${sourceUrl}: 完成, 下载${(downloadedBytes/1024).toFixed(1)}KB用时${totalElapsed}ms, 速度${speedKBps.toFixed(2)}KB/s`);
             resolve(speedKBps);
           }
         });
